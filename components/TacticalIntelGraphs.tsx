@@ -3,7 +3,7 @@ import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { calculateKDA, getKDAColor } from '../utils/tactical';
+import { calculateKDA, getKDAColor, parseMatchResult } from '../utils/tactical';
 import PlayerStatsModal, { PlayerStats } from './PlayerStatsModal';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
 
@@ -26,6 +26,9 @@ interface AgentStat {
     pickRate: number;
     winRate: number;
     totalGames: number;
+    wins: number;
+    losses: number;
+    draws: number;
 }
 
 const GOLD = '#fbbf24';
@@ -36,17 +39,21 @@ const SLATE = '#334155';
 const DARK = '#020617';
 
 // SVG Donut Ring
-const DonutRing: React.FC<{ wins: number; losses: number; label?: string }> = ({ wins, losses, label }) => {
-    const total = wins + losses || 1;
+const DonutRing: React.FC<{ wins: number; losses: number; draws?: number; label?: string }> = ({ wins, losses, draws = 0, label }) => {
+    const total = wins + losses + draws || 1;
     const winPct = Math.round((wins / total) * 100);
     const r = 52;
     const circ = 2 * Math.PI * r;
     const winArc = (wins / total) * circ;
+    const lossArc = (losses / total) * circ;
+    const drawArc = (draws / total) * circ;
+
     return (
         <div className="flex flex-col items-center">
             <div className="relative w-28 h-28 md:w-36 md:h-36">
                 <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
                     <circle cx="60" cy="60" r={r} fill="none" stroke="#ffffff08" strokeWidth="12" />
+                    {/* Wins segment */}
                     <circle
                         cx="60" cy="60" r={r} fill="none"
                         stroke="url(#donutWin)" strokeWidth="12"
@@ -54,10 +61,19 @@ const DonutRing: React.FC<{ wins: number; losses: number; label?: string }> = ({
                         strokeLinecap="round"
                         className="transition-all duration-1000 ease-out"
                     />
+                    {/* Losses segment */}
                     <circle
                         cx="60" cy="60" r={r} fill="none"
                         stroke={RED + '66'} strokeWidth="12"
-                        strokeDasharray={`${circ - winArc} ${winArc}`}
+                        strokeDasharray={`${lossArc} ${circ - lossArc}`}
+                        strokeDashoffset={-winArc - drawArc}
+                        strokeLinecap="round"
+                    />
+                    {/* Draws segment */}
+                    <circle
+                        cx="60" cy="60" r={r} fill="none"
+                        stroke={GOLD + '66'} strokeWidth="12"
+                        strokeDasharray={`${drawArc} ${circ - drawArc}`}
                         strokeDashoffset={-winArc}
                         strokeLinecap="round"
                     />
@@ -70,13 +86,16 @@ const DonutRing: React.FC<{ wins: number; losses: number; label?: string }> = ({
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                     <span className="text-xl md:text-2xl font-black text-white tracking-tighter">{winPct}%</span>
-                    <span className="text-[7px] md:text-[9px] font-black text-amber-500/60 uppercase tracking-[0.2em]">WINS</span>
+                    <span className="text-[7px] md:text-[9px] font-black text-amber-500/60 uppercase tracking-[0.2em]">WIN RATE</span>
                 </div>
             </div>
             {label && <p className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] md:tracking-[0.3em] mt-2">{label}</p>}
             <div className="flex gap-4 mt-3">
                 <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />{wins}W
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-black text-amber-500">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />{draws}D
                 </span>
                 <span className="flex items-center gap-1 text-[10px] font-black text-red-400">
                     <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />{losses}L
@@ -96,7 +115,9 @@ const FormStrip: React.FC<{ form: string[] }> = ({ form }) => (
                 : form.slice(-7).map((r, i) => (
                     <span key={i} className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border transition-all ${r === 'W'
                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
-                        : 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : r === 'D'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+                            : 'bg-red-500/10 text-red-400 border-red-500/20'
                         }`}>{r}</span>
                 ))
             }
@@ -199,7 +220,7 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
     const cancelled = scrims.filter(s => s.status === 'cancelled').length;
 
     // Win/Loss from results JSON: a scrim is a W if majority maps are WIN
-    let wins = 0, losses = 0;
+    let wins = 0, losses = 0, draws = 0;
     const recentForm: string[] = [];
     const mapWins: Record<string, { w: number; t: number }> = {};
 
@@ -209,11 +230,19 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
             results = typeof s.results === 'string' ? JSON.parse(s.results) : (s.results || []);
         } catch { results = []; }
 
-        const ws = results.filter((r: any) => r && r.score === 'WIN').length;
-        const ls = results.filter((r: any) => r && r.score === 'LOSS').length;
-        const isWin = ws > ls;
-        if (isWin) wins++; else losses++;
-        recentForm.push(isWin ? 'W' : 'L');
+        const ws = results.filter((r: any) => r && parseMatchResult(r.score, r.isVictory) === 1).length;
+        const ls = results.filter((r: any) => r && parseMatchResult(r.score, r.isVictory) === 0).length;
+
+        if (ws > ls) {
+            wins++;
+            recentForm.push('W');
+        } else if (ws < ls) {
+            losses++;
+            recentForm.push('L');
+        } else if (results.length > 0) {
+            draws++;
+            recentForm.push('D');
+        }
 
         // Map stats
         let maps: string[] = [];
@@ -225,7 +254,7 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
             if (!m) return;
             if (!mapWins[m]) mapWins[m] = { w: 0, t: 0 };
             mapWins[m].t++;
-            if (results[i]?.score === 'WIN') mapWins[m].w++;
+            if (parseMatchResult(results[i]?.score, results[i]?.isVictory) === 1) mapWins[m].w++;
         });
     });
 
@@ -251,7 +280,7 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                 <div className="bg-white/[0.02] rounded-[24px] md:rounded-[32px] border border-white/5 p-6 md:p-8 flex flex-col items-center justify-center">
                     <SectionLabel label="Combat Record" />
-                    <DonutRing wins={wins} losses={losses} label="Win Rate" />
+                    <DonutRing wins={wins} losses={losses} draws={draws} label="Win Rate" />
                 </div>
                 <div className="bg-white/[0.02] rounded-[24px] md:rounded-[32px] border border-white/5 p-6 md:p-8 flex flex-col gap-6 md:gap-8 justify-center">
                     <FormStrip form={recentForm} />
@@ -263,7 +292,8 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
                         {[
                             { label: 'Total', value: scrims.length, color: 'text-white' },
                             { label: 'Done', value: completed.length, color: 'text-emerald-400' },
-                            { label: 'Wins', value: wins, color: 'text-amber-400' },
+                            { label: 'Wins', value: wins, color: 'text-emerald-400' },
+                            { label: 'Draws', value: draws, color: 'text-amber-500' },
                             { label: 'Losses', value: losses, color: 'text-red-400' },
                         ].map(({ label, value, color }) => (
                             <div key={label} className="flex justify-between items-center border-b border-white/5 pb-2 md:pb-3 last:border-0 last:pb-0">
@@ -310,7 +340,7 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
     const pending = tournaments.filter(t => t.status === 'pending').length;
     const cancelled = tournaments.filter(t => t.status === 'cancelled').length;
 
-    let wins = 0, losses = 0;
+    let wins = 0, losses = 0, draws = 0;
     const recentForm: string[] = [];
     const opponentCount: Record<string, number> = {};
     const formatCount: Record<string, number> = {};
@@ -321,11 +351,19 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
             results = typeof t.results === 'string' ? JSON.parse(t.results) : (t.results || []);
         } catch { results = []; }
 
-        const ws = results.filter((r: any) => r && r.score === 'WIN').length;
-        const ls = results.filter((r: any) => r && r.score === 'LOSS').length;
-        const isWin = ws > ls;
-        if (isWin) wins++; else losses++;
-        recentForm.push(isWin ? 'W' : 'L');
+        const ws = results.filter((r: any) => r && parseMatchResult(r.score, r.isVictory) === 1).length;
+        const ls = results.filter((r: any) => r && parseMatchResult(r.score, r.isVictory) === 0).length;
+
+        if (ws > ls) {
+            wins++;
+            recentForm.push('W');
+        } else if (ws < ls) {
+            losses++;
+            recentForm.push('L');
+        } else if (results.length > 0) {
+            draws++;
+            recentForm.push('D');
+        }
     });
 
     tournaments.forEach(t => {
@@ -358,7 +396,7 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8 flex flex-col items-center justify-center">
                     <SectionLabel label="Tournament Record" />
-                    <DonutRing wins={wins} losses={losses} label="Tournament Win Rate" />
+                    <DonutRing wins={wins} losses={losses} draws={draws} label="Tournament Win Rate" />
                 </div>
                 <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8 flex flex-col gap-8 justify-center">
                     <FormStrip form={recentForm} />
@@ -716,6 +754,9 @@ const TacticalIntelGraphs: React.FC<TacticalIntelGraphsProps> = ({ teamId: initi
                                     return {
                                         name,
                                         totalGames: s.total,
+                                        wins: s.wins || 0,
+                                        draws: s.draws || 0,
+                                        losses: s.total - (s.wins || 0) - (s.draws || 0),
                                         pickRate: Math.round((s.total / (totalGames || 1)) * 100),
                                         winRate: Math.round((s.wins / (s.total || 1)) * 100)
                                     };
@@ -753,6 +794,10 @@ const TacticalIntelGraphs: React.FC<TacticalIntelGraphsProps> = ({ teamId: initi
                                                         <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
                                                             <span className="text-slate-500">Pick Rate</span>
                                                             <span className="text-white">{agent.pickRate}%</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[7px] font-black uppercase tracking-widest text-slate-500/60 pb-1">
+                                                            <span>Record</span>
+                                                            <span className="text-slate-400">{agent.wins}W-{agent.losses}L-{agent.draws}D</span>
                                                         </div>
                                                         <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                                                             <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${agent.pickRate}%` }} />

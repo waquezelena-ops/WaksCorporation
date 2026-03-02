@@ -1,63 +1,90 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
-
-const API_BASE_URL = GET_API_BASE_URL();
 
 /**
  * Hook to synchronize client data with the database in real-time.
- * It connects to the /api/realtime SSE endpoint and dispatches a
- * custom event 'nxc-db-refresh' whenever a change is detected.
+ * Connects to /api/realtime SSE endpoint, dispatches 'nxc-db-refresh' on change.
+ *
+ * Reliability improvements:
+ * - API_BASE_URL resolved inside the effect (not at module load) so Capacitor / env changes work.
+ * - Exponential backoff with NO permanent retry limit — reconnects indefinitely.
+ * - Reconnects when the tab regains visibility (prevents stale data after device sleep).
+ * - Cleans up properly on unmount.
  */
 export const useRealtimeSync = () => {
-    useEffect(() => {
-        console.log('[Realtime] Initializing sync listener...');
+    const eventSourceRef = useRef<EventSource | null>(null);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const retryCountRef = useRef(0);
+    const mountedRef = useRef(true);
 
-        let eventSource: EventSource | null = null;
-        let retryCount = 0;
-        const maxRetries = 5;
+    useEffect(() => {
+        mountedRef.current = true;
 
         const connect = () => {
-            if (eventSource) {
-                eventSource.close();
-            }
+            if (!mountedRef.current) return;
 
-            // Create EventSource connection
-            // Note: SSE works over HTTP, so we use the same API base URL
+            // Resolve URL inside the effect so it picks up env changes correctly
+            const API_BASE_URL = GET_API_BASE_URL();
             const url = `${API_BASE_URL}/api/realtime`;
-            eventSource = new EventSource(url);
 
-            eventSource.onopen = () => {
+            console.log('[Realtime] Connecting to SSE channel...');
+
+            // Close any existing connection before opening a new one
+            eventSourceRef.current?.close();
+
+            const es = new EventSource(url);
+            eventSourceRef.current = es;
+
+            es.onopen = () => {
                 console.log('[Realtime] Signal established.');
-                retryCount = 0;
+                retryCountRef.current = 0; // Reset backoff on successful connection
             };
 
-            eventSource.onmessage = (event) => {
+            es.onmessage = (event) => {
                 if (event.data === 'refresh') {
-                    console.log('[Realtime] DB change detected. Dispatching global refresh signal...');
+                    console.log('[Realtime] DB change detected — dispatching refresh signal.');
                     window.dispatchEvent(new CustomEvent('nxc-db-refresh'));
                 }
             };
 
-            eventSource.onerror = (err) => {
-                console.error('[Realtime] Signal lost:', err);
-                eventSource?.close();
+            es.onerror = () => {
+                console.warn('[Realtime] Signal lost. Scheduling reconnect...');
+                es.close();
+                eventSourceRef.current = null;
 
-                if (retryCount < maxRetries) {
-                    retryCount++;
-                    const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
-                    console.log(`[Realtime] Retrying in ${delay}ms...`);
-                    setTimeout(connect, delay);
-                } else {
-                    console.warn('[Realtime] Max retries reached. Real-time updates disabled.');
-                }
+                if (!mountedRef.current) return;
+
+                // Exponential backoff: 2s, 4s, 8s, ... capped at 60s. No hard limit.
+                retryCountRef.current += 1;
+                const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 60000);
+                console.log(`[Realtime] Reconnecting in ${delay / 1000}s (attempt ${retryCountRef.current})...`);
+                retryTimeoutRef.current = setTimeout(connect, delay);
             };
         };
 
+        // Reconnect when the tab becomes visible again (e.g. after device sleep)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const readyState = eventSourceRef.current?.readyState;
+                // CLOSED = 2; reconnect if the connection dropped while tab was hidden
+                if (readyState === undefined || readyState === EventSource.CLOSED) {
+                    console.log('[Realtime] Tab regained focus — reconnecting SSE...');
+                    retryCountRef.current = 0;
+                    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+                    connect();
+                }
+            }
+        };
+
         connect();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            console.log('[Realtime] Terminating sync listener.');
-            eventSource?.close();
+            mountedRef.current = false;
+            if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+            eventSourceRef.current?.close();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            console.log('[Realtime] Sync listener terminated.');
         };
-    }, []);
+    }, []); // Only runs once — the hook manages its own reconnection lifecycle
 };

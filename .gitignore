@@ -37,3 +37,17 @@ NXC_Royal_Edict_Preview.pdf
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch / temporary files
+tmp/
+*.log
+debug.log
+discord_audit.log
+new_server.log
+server_api.log
+server_debug.log
+verification.log
+verification_full.log
+eng.traineddata
+WC_Royal_Edict_*.pdf
+WC_Royal_Edict_Preview.pdf

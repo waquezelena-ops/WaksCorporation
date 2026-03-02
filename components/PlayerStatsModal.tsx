@@ -1,368 +1,778 @@
-import React, { useEffect, useState } from 'react';
-import Modal from './Modal';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { calculateKDA, getKDAColor, getTacticalRole } from '../utils/tactical';
+import Modal from './Modal';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
 
-export interface PlayerStats {
-    id: number;
-    name: string;
-    role: string;
-    kda?: string;
-    winRate?: string;
-    acs?: string;
-    image: string;
-    level?: number;
-    xp?: number;
-    userId?: number;
+interface PlayerStatsModalProps {
+    player: any;
+    isOpen: boolean;
+    onClose: () => void;
+    userRole?: string;
+    showAdvancedIntel?: boolean;
 }
 
-const AnimatedTitle = ({ text1, text2, className }: { text1: string, text2: string, className: string }) => {
-    return (
-        <h2 className={className}>
-            <span className="text-white inline-block">
-                {text1.split('').map((char, i) => (char === ' ' ? <span key={i}>&nbsp;</span> : <span key={i} className="animate-letter" style={{ animationDelay: `${i * 0.05}s` }}>{char}</span>))}
-            </span>
-            <span className="inline-block">&nbsp;</span>
-            <span className="text-amber-500 inline-block">
-                {text2.split('').map((char, i) => (char === ' ' ? <span key={i}>&nbsp;</span> : <span key={i} className="animate-letter" style={{ animationDelay: `${(text1.length + i) * 0.05}s` }}>{char}</span>))}
-            </span>
-        </h2>
-    );
-};
-
-const PlayerStatsModal = ({ player, isOpen, onClose, userRole, currentUserId, trendData = [], showAdvancedIntel = false }: { player: PlayerStats | null; isOpen: boolean; onClose: () => void; userRole?: string; currentUserId?: number; trendData?: any[]; showAdvancedIntel?: boolean }) => {
+const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
+    player,
+    isOpen,
+    onClose,
+    userRole = 'member',
+    showAdvancedIntel = false
+}) => {
     const [breakdown, setBreakdown] = useState<any>(null);
     const [loadingBreakdown, setLoadingBreakdown] = useState(false);
     const [breakdownError, setBreakdownError] = useState<string | null>(null);
     const [detailView, setDetailView] = useState<{ type: 'agent' | 'role' | 'map', name: string } | null>(null);
     const [matchIntelDetail, setMatchIntelDetail] = useState<any>(null);
     const [loadingMatchIntel, setLoadingMatchIntel] = useState(false);
-    const [selectedMatchForStats, setSelectedMatchForStats] = useState<{ id: number; type: 'scrim' | 'tournament'; opponent: string; date: string } | null>(null);
-    const [matchDetails, setMatchDetails] = useState<any[]>([]);
+    const [selectedMatchForStats, setSelectedMatchForStats] = useState<any>(null);
+    const [matchDetails, setMatchDetails] = useState<any>(null); // { scrim, stats }
+    const [matchDetailsError, setMatchDetailsError] = useState<string | null>(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
+    const [matchIntelError, setMatchIntelError] = useState<string | null>(null);
 
-    const isAuthorized = (role?: string) => {
-        if (showAdvancedIntel) return true; // If view explicitly requests advanced intel, allow it
-        if (!role) return false;
-        if (player && currentUserId === player.userId) return true;
-        const roles = role.split(',').map(r => r.trim().toLowerCase());
-        return roles.some(r => ['manager', 'coach', 'admin', 'ceo'].includes(r));
-    };
-
-    const fetchBreakdown = async () => {
-        if (player && isOpen && userRole && showAdvancedIntel && isAuthorized(userRole)) {
+    useEffect(() => {
+        const fetchBreakdown = async () => {
+            if (!isOpen || !player?.id) return;
             setLoadingBreakdown(true);
             setBreakdownError(null);
             try {
-                const res = await fetch(`${GET_API_BASE_URL()}/api/players/${player.id}/stats/breakdown`);
-                if (!res.ok) throw new Error('Tactical Neural Link Failure: Terminal Unresponsive');
+                const res = await fetch(`${GET_API_BASE_URL()}/api/players/${player.id}/breakdown`);
                 const result = await res.json();
                 if (result.success) {
                     setBreakdown(result.data);
                 } else {
-                    throw new Error(result.error || 'Intelligence Stream Corrupted');
+                    setBreakdownError(result.error || "Failed to load tactical breakdown.");
                 }
-            } catch (err: any) {
-                console.error("Error fetching breakdown", err);
-                setBreakdownError(err.message);
+            } catch (err) {
+                console.error("Breakdown fetch error:", err);
+                setBreakdownError("Signal interference detected. Could not retrieve intel.");
             } finally {
                 setLoadingBreakdown(false);
             }
-        } else {
-            setBreakdown(null);
-            setDetailView(null);
-            setBreakdownError(null);
-        }
-    };
-
-    useEffect(() => {
-        fetchBreakdown();
-
-        const handleRefresh = () => {
-            console.log("[PLAYER-STATS-MODAL] Real-time sync triggered");
-            fetchBreakdown();
         };
 
-        window.addEventListener('nxc-db-refresh', handleRefresh);
-        return () => window.removeEventListener('nxc-db-refresh', handleRefresh);
-    }, [player, isOpen, userRole, showAdvancedIntel]);
-
-    const getDetailData = () => {
-        if (!detailView || !breakdown?.history) return [];
-        const history = breakdown.history;
-
-        if (detailView.type === 'agent') {
-            return history
-                .filter((s: any) => s.agent === detailView.name)
-                .map((s: any) => ({
-                    date: s.date,
-                    kd: calculateKDA(s.kills, s.assists, s.deaths)
-                }))
-                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (isOpen) {
+            fetchBreakdown();
+        } else {
+            setDetailView(null);
+            setMatchIntelDetail(null);
         }
+    }, [isOpen, player?.id]);
 
-        if (detailView.type === 'role') {
-            return history
-                .filter((s: any) => s.role === detailView.name)
-                .map((s: any) => ({
-                    date: s.date,
-                    kd: calculateKDA(s.kills, s.assists, s.deaths)
-                }))
-                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        }
+    useEffect(() => {
+        const fetchMatchDetails = async () => {
+            if (!selectedMatchForStats) return;
+            setLoadingDetails(true);
+            setMatchDetailsError(null);
+            setMatchDetails(null);
+            try {
+                const rawType = selectedMatchForStats.type || 'scrim';
+                const apiType = rawType === 'tournament' ? 'tournaments' : 'scrims';
+                const matchId = selectedMatchForStats.matchId || selectedMatchForStats.id;
+                if (!matchId) {
+                    setMatchDetailsError('No match ID available.');
+                    return;
+                }
+                const res = await fetch(`${GET_API_BASE_URL()}/api/${apiType}/${matchId}/stats`);
+                if (!res.ok) {
+                    setMatchDetailsError(`Server error: ${res.status} ${res.statusText}`);
+                    return;
+                }
+                const result = await res.json();
+                if (result.success) {
+                    setMatchDetails(result.data); // stores { scrim, stats }
+                } else {
+                    setMatchDetailsError(result.error || 'Failed to load match details.');
+                }
+            } catch (err: any) {
+                console.error("Match details fetch error:", err);
+                setMatchDetailsError('Signal interference. Could not retrieve match data.');
+            } finally {
+                setLoadingDetails(false);
+            }
+        };
 
-        if (detailView.type === 'map') {
-            return history
-                .filter((s: any) => s.map === detailView.name)
-                .map((s: any) => ({
-                    date: s.date,
-                    kd: calculateKDA(s.kills, s.assists, s.deaths)
-                }))
-                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        }
-        return [];
+        fetchMatchDetails();
+    }, [selectedMatchForStats]);
+
+    const calculateKDA = (k: number, a: number, d: number) => {
+        if (d === 0) return (k + a).toFixed(2);
+        return ((k + a) / d).toFixed(2);
     };
 
-    const getAgentsInRole = () => {
-        if (!detailView || detailView.type !== 'role' || !breakdown?.history) return [];
-        const agents = new Set<string>();
-        breakdown.history.forEach((s: any) => {
-            if (s.role === detailView.name) agents.add(s.agent);
-        });
-        return Array.from(agents);
+    const getKDAColor = (kda: string) => {
+        const val = parseFloat(kda);
+        if (val >= 2.0) return 'text-emerald-500';
+        if (val >= 1.0) return 'text-amber-500';
+        return 'text-red-500';
     };
 
     const handleMatchClick = async (s: any) => {
-        const matchId = s.scrimId || s.tournamentId;
-        const type = s.scrimId ? 'scrims' : 'tournaments';
+        const rawType = s.type || 'scrim';
+        const apiType = rawType === 'tournament' ? 'tournaments' : 'scrims';
+        const matchId = s.matchId || s.id;
         if (!matchId) return;
 
         setLoadingMatchIntel(true);
+        setMatchIntelError(null);
         try {
-            const res = await fetch(`${GET_API_BASE_URL()}/api/${type}/${matchId}/stats`);
+            const res = await fetch(`${GET_API_BASE_URL()}/api/${apiType}/${matchId}/stats`);
+            if (!res.ok) {
+                setMatchIntelError(`Server error: ${res.status}`);
+                setMatchIntelDetail({ ...s, details: null });
+                return;
+            }
             const result = await res.json();
             if (result.success) {
                 setMatchIntelDetail({
                     ...s,
                     details: result.data
                 });
+            } else {
+                setMatchIntelError(result.error || 'Failed to load match intel.');
+                setMatchIntelDetail({ ...s, details: null });
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Match intel fetch error:", err);
+            setMatchIntelError('Signal interference. Could not retrieve match intel.');
+            setMatchIntelDetail({ ...s, details: null });
         } finally {
             setLoadingMatchIntel(false);
         }
     };
 
+    const getDetailData = () => {
+        if (!detailView || !breakdown?.history) return [];
+        return breakdown.history
+            .filter((s: any) => {
+                if (detailView.type === 'agent') return s.agent === detailView.name;
+                if (detailView.type === 'role') return s.role === detailView.name;
+                if (detailView.type === 'map') return s.map === detailView.name;
+                return false;
+            })
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .map((s: any) => ({
+                date: s.date,
+                kd: parseFloat(calculateKDA(s.kills, s.assists, s.deaths))
+            }));
+    };
+
+    const getAgentsInRole = () => {
+        if (!detailView || detailView.type !== 'role' || !breakdown?.agents) return [];
+        return breakdown.agents
+            .filter((a: any) => a.role === detailView.name)
+            .map((a: any) => a.name);
+    };
+
     return (
         <>
-            <Modal isOpen={isOpen} onClose={onClose} zIndex={1000} backdropClassName="bg-black/90 backdrop-blur-xl" className="w-full max-w-4xl p-4 md:p-6">
-                {player && <div className="relative w-full bg-[#020617]/90 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/30 shadow-[0_0_120px_rgba(245,158,11,0.15)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
+            <Modal isOpen={isOpen} onClose={onClose} zIndex={3000} backdropClassName="bg-black/98 backdrop-blur-3xl animate-in fade-in duration-700" className="w-full max-w-5xl max-h-[92vh] p-4">
+                {player && (
+                    <div className="relative w-full max-h-[88vh] bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/30 shadow-[0_0_120px_rgba(245,158,11,0.2)] overflow-y-auto overflow-x-hidden custom-scrollbar animate-in fade-in zoom-in-95 duration-500">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
 
-                    {/* Header / Image Background */}
-                    <div className="relative h-[340px] md:h-[440px] overflow-hidden border-b border-white/5 bg-[#020617]">
-                        {/* Detail View Modal */}
-                        <Modal
-                            isOpen={!!detailView}
-                            onClose={() => setDetailView(null)}
-                            zIndex={1100}
-                            backdropClassName="bg-black/90 backdrop-blur-3xl animate-in fade-in duration-500"
-                            className="w-full max-w-4xl p-4 md:p-6"
-                        >
-                            {detailView && (
-                                <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/30 shadow-[0_0_150px_rgba(245,158,11,0.2)] overflow-hidden flex flex-col p-8 md:p-12 animate-in zoom-in-95 duration-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/[0.05] blur-[150px] rounded-full pointer-events-none" />
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
-                                        <button
-                                            onClick={() => setDetailView(null)}
-                                            className="w-fit px-6 py-3.5 bg-white/5 hover:bg-amber-500 text-slate-400 hover:text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 transition-all border border-white/5 hover:border-amber-500 active:scale-95 shadow-2xl group/back"
-                                        >
-                                            <svg className="w-4 h-4 group-hover/back:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-                                            Retract Intel
-                                        </button>
-                                        <div className="text-left md:text-right space-y-1">
-                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.5em]">{detailView.type} Operational Archives</p>
-                                            <div className="flex items-center md:justify-end gap-4">
-                                                {detailView.type === 'agent' && (
-                                                    <img
-                                                        src={`/assets/agents/${detailView.name.replace('/', '_')}${detailView.name === 'Veto' ? '.webp' : '.png'}`}
-                                                        alt={detailView.name}
-                                                        className="w-12 h-12 md:w-16 md:h-16 object-contain drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                    />
-                                                )}
-                                                <h4 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter italic leading-none">{detailView.name}</h4>
-                                            </div>
+                        {/* Top Banner */}
+                        <div className="relative h-[180px] md:h-[240px] overflow-hidden border-b border-white/5 bg-[#020617]">
+                            <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 to-transparent z-10" />
+                            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-20 grayscale brightness-50" />
+                            <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 z-20 flex items-end justify-between">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                        <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg text-[8px] font-black text-amber-500 uppercase tracking-[0.3em]">Operational Unit</span>
+                                        {player.role?.includes('coach') && <span className="px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-lg text-[8px] font-black text-purple-400 uppercase tracking-[0.3em]">Command Staff</span>}
+                                    </div>
+                                    <h2 className="text-4xl md:text-6xl font-black text-white italic tracking-tighter uppercase leading-none">{player.name}</h2>
+                                    <p className="text-xs md:text-sm text-slate-400 font-bold tracking-[0.2em] uppercase">{player.team} Intelligence Profile</p>
+                                </div>
+                                <button
+                                    onClick={onClose}
+                                    className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-500 hover:text-white transition-all border border-white/5 hover:border-white/20 group"
+                                >
+                                    <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Main Content Area */}
+                        <div className="p-8 md:p-12 space-y-12 relative z-10">
+                            {loadingBreakdown ? (
+                                <div className="py-20 flex flex-col items-center justify-center space-y-6">
+                                    <div className="relative">
+                                        <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin" />
+                                        <div className="absolute inset-0 w-16 h-16 border-4 border-purple-500/10 border-b-purple-500 rounded-full animate-spin-slow" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-amber-500 font-black uppercase tracking-[0.5em] text-[10px] animate-pulse">Decrypting Battle Records...</p>
+                                        <p className="text-[8px] text-slate-500 uppercase font-bold mt-2 tracking-widest">Waks Corp High-Speed Uplink</p>
+                                    </div>
+                                </div>
+                            ) : breakdownError ? (
+                                <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 mb-4 animate-bounce">
+                                        <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    </div>
+                                    <h5 className="text-red-500 font-black uppercase tracking-[0.4em] text-xs">Tactical Feed Disrupted</h5>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest text-center max-w-xs">{breakdownError}</p>
+                                    <button
+                                        onClick={() => window.location.reload()}
+                                        className="mt-6 px-8 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-black rounded-xl text-[10px] font-black uppercase tracking-[0.3em] transition-all border border-red-500/20"
+                                    >
+                                        Attempt Reconnection
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Stats Grid */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                                        <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 hover:bg-white/[0.05] transition-all">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2">Hostile Neutralizations</p>
+                                            <p className="text-3xl font-black text-white italic">{breakdown?.overall?.avgKills?.toFixed(1) || '0.0'}</p>
+                                            <span className="text-[8px] text-amber-500/60 font-black uppercase tracking-widest mt-1 italic">Average per Mission</span>
+                                        </div>
+                                        <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 hover:bg-white/[0.05] transition-all">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2">Neural Efficiency</p>
+                                            <p className={`text-3xl font-black italic ${getKDAColor(breakdown?.overall?.avgKda?.toFixed(2) || '0.00')}`}>{breakdown?.overall?.avgKda?.toFixed(2) || '0.00'}</p>
+                                            <span className="text-[8px] text-amber-500/60 font-black uppercase tracking-widest mt-1 italic">Composite KDA Ratio</span>
+                                        </div>
+                                        <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 hover:bg-white/[0.05] transition-all">
+                                            <p className="text-[8px] text-indigo-400 font-black uppercase tracking-[0.3em] mb-2">Combat Support</p>
+                                            <p className="text-3xl font-black text-indigo-400 italic">{breakdown?.overall?.avgAssists?.toFixed(1) || '0.0'}</p>
+                                            <span className="text-[8px] text-indigo-400/60 font-black uppercase tracking-widest mt-1 italic">Mission Influence</span>
+                                        </div>
+                                        <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 hover:bg-white/[0.05] transition-all">
+                                            <p className="text-[8px] text-purple-400 font-black uppercase tracking-[0.3em] mb-2">Combat Score</p>
+                                            <p className="text-3xl font-black text-purple-400 italic">{Math.round(breakdown?.overall?.avgAcs || 0)}</p>
+                                            <span className="text-[8px] text-purple-400/60 font-black uppercase tracking-widest mt-1 italic">Average Combat Output</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex-grow space-y-8 relative z-10">
-                                        <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 md:p-10">
-                                            <div className="flex items-center space-x-4 text-amber-500 mb-8">
-                                                <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.5)] animate-pulse" />
-                                                <h4 className="text-xs md:text-sm font-black uppercase tracking-[0.4em] italic">Historical Performance Trajectory</h4>
+                                    {/* Charts Section */}
+                                    <div className="space-y-16">
+                                        {/* Operator Affinity */}
+                                        <div className="space-y-8">
+                                            <div className="flex items-center space-x-4 text-amber-500">
+                                                <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(251,191,36,0.3)] animate-pulse" />
+                                                <h4 className="text-sm font-black uppercase tracking-[0.4em] italic">Operator Affinity Matrix</h4>
                                             </div>
-                                            <div className="h-[300px] w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={getDetailData()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                        <defs>
-                                                            <linearGradient id="colorKdDetail" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.4} />
-                                                                <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(str) => {
-                                                            const d = new Date(str);
-                                                            return `${d.getMonth() + 1}/${d.getDate()}`;
-                                                        }} />
-                                                        <YAxis stroke="#475569" fontSize={10} />
-                                                        <Tooltip
-                                                            contentStyle={{ backgroundColor: '#020617', borderColor: '#fbbf2433', borderRadius: '16px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                                                            itemStyle={{ color: '#fbbf24' }}
-                                                            labelStyle={{ color: '#64748b', marginBottom: '4px' }}
-                                                            labelFormatter={(label) => `Timestamp: ${label}`}
-                                                            formatter={(value, name) => [value, 'KDA Ratio']}
-                                                        />
-                                                        <Area type="monotone" dataKey="kd" stroke="#fbbf24" strokeWidth={4} fillOpacity={1} fill="url(#colorKdDetail)" activeDot={{ r: 8, strokeWidth: 0, fill: '#fbbf24' }} />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {breakdown?.agents?.map((agent: any, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => setDetailView({ type: 'agent', name: agent.name })}
+                                                        className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 hover:bg-amber-500/5 hover:border-amber-500/30 transition-all cursor-pointer group"
+                                                    >
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <img
+                                                                    src={`/assets/agents/${agent.name.replace('/', '_')}${agent.name === 'Veto' ? '.webp' : '.png'}`}
+                                                                    className="w-10 h-10 object-contain drop-shadow-[0_0_5px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform"
+                                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                                />
+                                                                <div>
+                                                                    <p className="text-xs font-black text-white uppercase tracking-tight">{agent.name}</p>
+                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-[0.2em]">{agent.role}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xs font-black text-amber-500 italic">{agent.kda?.toFixed(2)}</p>
+                                                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">KDA</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between text-[7px] font-black uppercase tracking-widest">
+                                                                <span className="text-slate-500">Pick Frequency</span>
+                                                                <span className="text-white">{agent.matches} Ops</span>
+                                                            </div>
+                                                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${Math.min(100, (agent.matches / (breakdown?.overall?.totalMatches || 1)) * 300)}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
 
-                                        {detailView.type === 'role' && (
-                                            <div className="space-y-4 pt-4">
-                                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] pl-4">Combat Ready Operatives</p>
-                                                <div className="flex flex-wrap gap-3">
-                                                    {getAgentsInRole().map((agent, idx) => (
-                                                        <span key={idx} className="px-5 py-2.5 bg-white/5 border border-white/5 rounded-2xl text-[10px] font-black text-amber-500/80 uppercase tracking-widest italic group hover:bg-amber-500/10 hover:border-amber-500/30 transition-all">{agent}</span>
-                                                    ))}
-                                                </div>
+                                        {/* Deployment Zones */}
+                                        <div className="space-y-8">
+                                            <div className="flex items-center space-x-4 text-emerald-500">
+                                                <div className="w-1.5 h-8 bg-emerald-500 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                                                <h4 className="text-sm font-black uppercase tracking-[0.4em] italic">Theater Proficiency</h4>
                                             </div>
-                                        )}
-
-                                        {/* Match History Details */}
-                                        <div className="space-y-6 pt-8">
-                                            <div className="flex items-center space-x-4 text-amber-500">
-                                                <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.4)]" />
-                                                <h4 className="text-xs md:text-sm font-black uppercase tracking-[0.4em] italic">Match Intelligence History</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                {breakdown?.maps?.map((map: any, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => setDetailView({ type: 'map', name: map.name })}
+                                                        className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 hover:bg-emerald-500/5 hover:border-emerald-500/20 transition-all cursor-pointer text-center group"
+                                                    >
+                                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">{map.name}</p>
+                                                        <p className={`text-base font-black italic group-hover:text-emerald-500 transition-colors ${getKDAColor(map.kda?.toFixed(2))}`}>{map.kda?.toFixed(2)}</p>
+                                                        <p className="text-[7px] text-slate-600 font-black uppercase tracking-tighter mt-1">{map.winRate}% Vic Rate</p>
+                                                    </div>
+                                                ))}
                                             </div>
+                                        </div>
 
-                                            <div className="p-4 sm:p-10 space-y-12 overflow-y-auto max-h-[calc(100vh-200px)] custom-scrollbar">
-                                                {breakdown?.history
-                                                    .filter((s: any) => {
-                                                        if (detailView.type === 'agent') return s.agent === detailView.name;
-                                                        if (detailView.type === 'role') return s.role === detailView.name;
-                                                        if (detailView.type === 'map') return s.map === detailView.name;
-                                                        return false;
-                                                    })
-                                                    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                                    .map((s: any, idx: number) => (
+                                        {/* Tactical Archive */}
+                                        <div className="space-y-8">
+                                            <div className="flex items-center space-x-4 text-rose-400">
+                                                <div className="w-1.5 h-8 bg-rose-400 rounded-full shadow-[0_0_20px_rgba(251,113,133,0.3)]" />
+                                                <h4 className="text-sm font-black uppercase tracking-[0.4em] italic">Class Proficiency</h4>
+                                            </div>
+                                            {breakdown?.roles?.length > 0 ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    {breakdown.roles.map((role: any, idx: number) => (
                                                         <div
                                                             key={idx}
-                                                            onClick={() => handleMatchClick(s)}
-                                                            className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white/[0.05] hover:border-amber-500/30 transition-all cursor-pointer relative overflow-hidden"
+                                                            onClick={() => setDetailView({ type: 'role', name: role.name })}
+                                                            className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 hover:bg-rose-500/5 hover:border-rose-400/30 transition-all cursor-pointer group"
                                                         >
-                                                            {loadingMatchIntel && (
-                                                                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-10">
-                                                                    <div className="w-4 h-4 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div>
+                                                                    <p className="text-xs font-black text-white uppercase italic">{role.name}</p>
+                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mt-0.5">{role.matches} Ops</p>
                                                                 </div>
-                                                            )}
-                                                            <div className="flex items-center gap-4">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] ${s.isWin === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                                                    {s.isWin === 1 ? 'WIN' : 'LOSS'}
-                                                                </div>
-                                                                <div className="flex items-center gap-3">
-                                                                    <img
-                                                                        src={`/assets/agents/${(s.agent || '').replace('/', '_')}${s.agent === 'Veto' ? '.webp' : '.png'}`}
-                                                                        className="w-8 h-8 object-contain drop-shadow-[0_0_5px_rgba(245,158,11,0.3)] transition-transform group-hover:scale-110"
-                                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                                    />
-                                                                    <div>
-                                                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">{new Date(s.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                                                        <p className="text-sm font-black text-white uppercase tracking-tighter italic group-hover:text-amber-500 transition-colors">vs {s.opponent || 'Unknown Opponent'}</p>
-                                                                    </div>
+                                                                <div className="text-right">
+                                                                    <p className={`text-sm font-black italic ${getKDAColor(role.kda?.toFixed(2))}`}>{role.kda?.toFixed(2)}</p>
+                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">KDA</p>
                                                                 </div>
                                                             </div>
-
-                                                            <div className="flex items-center gap-6 md:gap-8">
-                                                                <div className="text-center">
-                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">Map</p>
-                                                                    <p className="text-[10px] font-black text-white uppercase">{s.map}</p>
+                                                            <div className="space-y-2">
+                                                                <div className="flex justify-between text-[7px] font-black uppercase tracking-widest">
+                                                                    <span className="text-slate-500">Win Rate</span>
+                                                                    <span className={role.winRate >= 50 ? 'text-emerald-500' : 'text-red-400'}>{role.winRate}%</span>
                                                                 </div>
-                                                                <div className="text-center">
-                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">KDA</p>
-                                                                    <p className="text-[10px] font-black text-amber-500 uppercase tracking-tighter">{s.kills}/{s.deaths}/{s.assists}</p>
-                                                                </div>
-                                                                <div className="text-center">
-                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">KDA Ratio</p>
-                                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${getKDAColor(calculateKDA(s.kills, s.assists, s.deaths))}`}>
-                                                                        {calculateKDA(s.kills, s.assists, s.deaths)}
-                                                                    </p>
-                                                                </div>
-
-                                                                <div className="text-center">
-                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">ACS</p>
-                                                                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-tighter">{s.acs || 0}</p>
-                                                                </div>
-                                                                <div className="text-slate-600 group-hover:text-amber-500 transition-colors">
-                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                                                                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                                                    <div className={`h-full rounded-full transition-all duration-1000 ${role.winRate >= 50 ? 'bg-emerald-500' : 'bg-red-400'}`} style={{ width: `${role.winRate}%` }} />
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))
-                                                }
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest text-center py-6">No role data recorded</p>
+                                            )}
+                                        </div>
+
+                                        {/* Engagement Archive */}
+                                        <div className="space-y-8">
+                                            <div className="flex items-center space-x-4 text-purple-400">
+                                                <div className="w-1.5 h-8 bg-purple-400 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)]" />
+                                                <h4 className="text-sm font-black uppercase tracking-[0.4em] italic">Engagement Archive</h4>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {breakdown?.history?.slice(0, 10).map((s: any, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => setSelectedMatchForStats(s)}
+                                                        className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.05] transition-all cursor-pointer group"
+                                                    >
+                                                        <div className="flex items-center gap-6">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] ${s.isWin ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                                {s.isWin ? 'WIN' : 'LOSS'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-black text-white uppercase italic">vs {s.opponent}</p>
+                                                                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{new Date(s.date).toLocaleDateString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-8 text-right pr-4">
+                                                            <div>
+                                                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">Theater</p>
+                                                                <p className="text-[10px] font-black text-white uppercase">{s.map}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mb-0.5">Registry</p>
+                                                                <p className="text-[10px] font-black text-amber-500 italic">{s.kills}/{s.deaths}/{s.assists}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Nested Detail View Modal */}
+            <Modal
+                isOpen={!!detailView}
+                onClose={() => setDetailView(null)}
+                zIndex={4000}
+                backdropClassName="bg-black/90 backdrop-blur-3xl animate-in fade-in duration-500"
+                className="w-full max-w-4xl p-4 md:p-6"
+            >
+                {detailView && (
+                    <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/30 shadow-[0_0_150px_rgba(245,158,11,0.2)] overflow-hidden flex flex-col p-8 md:p-12 animate-in zoom-in-95 duration-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/[0.05] blur-[150px] rounded-full pointer-events-none" />
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
+                            <button
+                                onClick={() => setDetailView(null)}
+                                className="w-fit px-6 py-3.5 bg-white/5 hover:bg-amber-500 text-slate-400 hover:text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 transition-all border border-white/5 hover:border-amber-500 active:scale-95 shadow-2xl group/back"
+                            >
+                                <svg className="w-4 h-4 group-hover/back:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+                                Retract Intel
+                            </button>
+                            <div className="text-left md:text-right space-y-1">
+                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.5em]">{detailView.type} Operational Archives</p>
+                                <div className="flex items-center md:justify-end gap-4">
+                                    {detailView.type === 'agent' && (
+                                        <img
+                                            src={`/assets/agents/${detailView.name.replace('/', '_')}${detailView.name === 'Veto' ? '.webp' : '.png'}`}
+                                            alt={detailView.name}
+                                            className="w-12 h-12 md:w-16 md:h-16 object-contain drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                                        />
+                                    )}
+                                    <h4 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter italic leading-none">{detailView.name}</h4>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex-grow space-y-8 relative z-10">
+                            <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 md:p-10">
+                                <div className="flex items-center space-x-4 text-amber-500 mb-8">
+                                    <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.5)] animate-pulse" />
+                                    <h4 className="text-xs md:text-sm font-black uppercase tracking-[0.4em] italic">Historical Performance Trajectory</h4>
+                                </div>
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={getDetailData()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="colorKdDetail" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.4} />
+                                                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="date" stroke="#475569" fontSize={10} tickFormatter={(str) => {
+                                                const d = new Date(str);
+                                                return `${d.getMonth() + 1}/${d.getDate()}`;
+                                            }} />
+                                            <YAxis stroke="#475569" fontSize={10} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#020617', borderColor: '#fbbf2433', borderRadius: '16px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                                itemStyle={{ color: '#fbbf24' }}
+                                                labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                                                labelFormatter={(label) => `Timestamp: ${label}`}
+                                                formatter={(value, name) => [value, 'KDA Ratio']}
+                                            />
+                                            <Area type="monotone" dataKey="kd" stroke="#fbbf24" strokeWidth={4} fillOpacity={1} fill="url(#colorKdDetail)" activeDot={{ r: 8, strokeWidth: 0, fill: '#fbbf24' }} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {detailView.type === 'role' && (
+                                <div className="space-y-4 pt-4">
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] pl-4">Combat Ready Operatives</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        {getAgentsInRole().map((agent, idx) => (
+                                            <span key={idx} className="px-5 py-2.5 bg-white/5 border border-white/5 rounded-2xl text-[10px] font-black text-amber-500/80 uppercase tracking-widest italic group hover:bg-amber-500/10 hover:border-amber-500/30 transition-all">{agent}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Match List in Details */}
+                            <div className="space-y-6 pt-8">
+                                <div className="flex items-center space-x-4 text-amber-500">
+                                    <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.4)]" />
+                                    <h4 className="text-xs md:text-sm font-black uppercase tracking-[0.4em] italic">Mission History Intelligence</h4>
+                                </div>
+                                <div className="space-y-4">
+                                    {breakdown?.history
+                                        ?.filter((s: any) => {
+                                            if (detailView.type === 'agent') return s.agent === detailView.name;
+                                            if (detailView.type === 'role') return s.role === detailView.name;
+                                            if (detailView.type === 'map') return s.map === detailView.name;
+                                            return false;
+                                        })
+                                        .slice(0, 8)
+                                        .map((s: any, idx: number) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleMatchClick(s)}
+                                                className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between hover:bg-amber-500/5 hover:border-amber-500/20 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[8px] ${s.isWin ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {s.isWin ? 'W' : 'L'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-white uppercase">vs {s.opponent}</p>
+                                                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">{new Date(s.date).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${s.type === 'tournament' ? 'bg-purple-500/10 text-purple-400' : 'bg-amber-500/10 text-amber-500'}`}>
+                                                        {s.type === 'tournament' ? 'TOURN' : 'SCRIM'}
+                                                    </span>
+                                                    <div className="text-right">
+                                                        <p className="text-[10px] font-black text-amber-500 italic">{s.kills}/{s.deaths}/{s.assists}</p>
+                                                        <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">{s.map}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Nested Match Intel Modal */}
+            <Modal
+                isOpen={!!matchIntelDetail}
+                onClose={() => setMatchIntelDetail(null)}
+                zIndex={4005}
+                backdropClassName="bg-black/95 backdrop-blur-3xl animate-in fade-in duration-500"
+                className="w-full max-w-2xl p-4 md:p-6"
+            >
+                {matchIntelDetail && (
+                    <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] border border-amber-500/30 shadow-2xl overflow-hidden p-8 md:p-10 animate-in zoom-in-95 duration-500 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-start mb-8">
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em]">Tactical Match Report</p>
+                                <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">vs {matchIntelDetail.opponent}</h3>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date(matchIntelDetail.date).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                            </div>
+                            <button onClick={() => setMatchIntelDetail(null)} className="text-slate-500 hover:text-white transition-colors">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-center">
+                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Theater</p>
+                                    <p className="text-sm font-black text-white uppercase italic">{matchIntelDetail.map}</p>
+                                </div>
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-center">
+                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Status</p>
+                                    <p className={`text-sm font-black uppercase italic ${matchIntelDetail.isWin ? 'text-emerald-500' : 'text-red-500'}`}>{matchIntelDetail.isWin ? 'VICTORY' : 'DEFEAT'}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <img
+                                            src={`/assets/agents/${(matchIntelDetail.agent || '').replace('/', '_')}${matchIntelDetail.agent === 'Veto' ? '.webp' : '.png'}`}
+                                            className="w-10 h-10 object-contain drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                                        />
+                                        <div>
+                                            <p className="text-xs font-black text-white uppercase">{matchIntelDetail.agent}</p>
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">{matchIntelDetail.role}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xl font-black text-amber-500 italic">{matchIntelDetail.kills}/{matchIntelDetail.deaths}/{matchIntelDetail.assists}</p>
+                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">KDA Registry</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Performance Metrics</p>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[10px] font-black uppercase">
+                                                <span className="text-slate-400">ACS</span>
+                                                <span className="text-purple-400">{matchIntelDetail.acs || 0}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-black uppercase">
+                                                <span className="text-slate-400">ADR</span>
+                                                <span className="text-amber-500">{matchIntelDetail.adr || 0}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </Modal>
+                            </div>
 
-                        {/* Match Detail Modal */}
-                        <Modal
-                            isOpen={!!matchIntelDetail}
-                            onClose={() => setMatchIntelDetail(null)}
-                            zIndex={1200}
-                            backdropClassName="bg-black/95 backdrop-blur-3xl animate-in fade-in duration-500"
-                            className="w-full max-w-2xl p-4 md:p-6"
+                            {matchIntelError && (
+                                <div className="py-10 flex flex-col items-center justify-center space-y-3 text-center bg-red-500/5 border border-red-500/10 rounded-2xl">
+                                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <p className="text-[10px] text-red-400 font-black uppercase tracking-widest">{matchIntelError}</p>
+                                </div>
+                            )}
+
+                            {matchIntelDetail.details && (
+                                <div className="space-y-4">
+                                    {/* Map Result for this specific map */}
+                                    {(() => {
+                                        const raw = matchIntelDetail.details?.scrim?.results || matchIntelDetail.details?.scrim?.maps;
+                                        let mapResults: any[] = [];
+                                        if (raw) { try { mapResults = JSON.parse(raw); } catch { } }
+                                        const thisMap = matchIntelDetail.map;
+                                        const filtered = thisMap
+                                            ? mapResults.filter((r: any) => String(r.mapName || r.map || '').toLowerCase() === thisMap.toLowerCase())
+                                            : mapResults;
+                                        if (filtered.length === 0) return null;
+                                        return (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-3 text-indigo-400">
+                                                    <div className="w-1.5 h-5 bg-indigo-400 rounded-full" />
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">Map Result</p>
+                                                </div>
+                                                {filtered.map((r: any, i: number) => {
+                                                    const score = r.score || '';
+                                                    const won = r.isVictory === true || (typeof score === 'string' && (() => { const [a, b] = score.split('-').map(Number); return !isNaN(a) && !isNaN(b) && a > b; })());
+                                                    const lost = r.isVictory === false || (typeof score === 'string' && (() => { const [a, b] = score.split('-').map(Number); return !isNaN(a) && !isNaN(b) && a < b; })());
+                                                    return (
+                                                        <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border ${won ? 'bg-emerald-500/5 border-emerald-500/20' : lost ? 'bg-red-500/5 border-red-500/20' : 'bg-white/5 border-white/5'}`}>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[8px] ${won ? 'bg-emerald-500/20 text-emerald-500' : lost ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-slate-400'}`}>
+                                                                    {won ? 'W' : lost ? 'L' : 'D'}
+                                                                </div>
+                                                                <p className="text-xs font-black text-white uppercase italic">{thisMap}</p>
+                                                            </div>
+                                                            {score && <p className="text-sm font-black text-amber-500 italic">{score}</p>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Team Deployment Registry</p>
+                                    <div className="space-y-2">
+                                        {(matchIntelDetail.details?.stats || matchIntelDetail.details || []).filter((st: any) =>
+                                            !matchIntelDetail.map || st.map === matchIntelDetail.map
+                                        ).map((st: any, i: number) => (
+                                            <div key={i} className={`flex items-center justify-between p-3 rounded-xl border ${st.playerId === player.id ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <img
+                                                        src={`/assets/agents/${(st.agent || '').replace('/', '_')}${st.agent === 'Veto' ? '.webp' : '.png'}`}
+                                                        className="w-6 h-6 object-contain"
+                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                    />
+                                                    <span className="text-xs font-black text-white uppercase">{st.playerName || st.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-[10px] font-black text-slate-400">{st.kills}/{st.deaths}/{st.assists}</span>
+                                                    <span className="text-[10px] font-black text-amber-500 w-8 text-right">{st.acs}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => setMatchIntelDetail(null)}
+                            className="w-full mt-8 py-4 bg-amber-500 text-black font-black uppercase tracking-[0.4em] text-[10px] rounded-2xl hover:bg-amber-400 transition-all active:scale-95 shadow-xl shadow-amber-500/20"
                         >
-                            {matchIntelDetail && (
-                                <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] border border-amber-500/30 shadow-2xl overflow-hidden p-8 md:p-10 animate-in zoom-in-95 duration-500 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                                    <div className="flex justify-between items-start mb-8">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em]">Tactical Match Report</p>
-                                            <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">vs {matchIntelDetail.opponent}</h3>
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date(matchIntelDetail.date).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                            Return to Archives
+                        </button>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Engagement Analysis Modal (from breakdown history) */}
+            <Modal isOpen={!!selectedMatchForStats} onClose={() => setSelectedMatchForStats(null)} zIndex={4000} backdropClassName="bg-black/95 backdrop-blur-3xl" className="w-full max-w-4xl p-4">
+                {selectedMatchForStats && (
+                    <div className="bg-[#020617] p-8 md:p-12 rounded-[40px] shadow-2xl w-full max-h-[85vh] overflow-y-auto custom-scrollbar border border-white/10 relative overflow-hidden animate-in zoom-in-95 duration-500">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none" />
+
+                        <div className="relative z-10 space-y-8">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Engagement Analysis</h3>
+                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.4em] mt-2">
+                                        vs {selectedMatchForStats.opponent} • {new Date(selectedMatchForStats.date).toLocaleDateString()} • {selectedMatchForStats.map}
+                                    </p>
+                                </div>
+                                <button onClick={() => setSelectedMatchForStats(null)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-500 hover:text-white transition-all">
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+
+                            {loadingDetails ? (
+                                <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                                    <div className="w-12 h-12 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin" />
+                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Retrieving Neural Archives...</p>
+                                </div>
+                            ) : matchDetailsError ? (
+                                <div className="py-16 flex flex-col items-center justify-center space-y-4 text-center">
+                                    <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    </div>
+                                    <p className="text-[10px] text-red-400 font-black uppercase tracking-widest">{matchDetailsError}</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Theater</p>
+                                            <p className="text-xs font-black text-white uppercase">{selectedMatchForStats.map}</p>
                                         </div>
-                                        <div className={`px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest ${matchIntelDetail.isWin === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                            {matchIntelDetail.isWin === 1 ? 'VICTORY' : 'DEFEAT'}
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">K/D/A</p>
+                                            <p className="text-xs font-black text-amber-500">{selectedMatchForStats.kills}/{selectedMatchForStats.deaths}/{selectedMatchForStats.assists}</p>
+                                        </div>
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Score</p>
+                                            <p className="text-xs font-black text-purple-400">{selectedMatchForStats.acs || 0} ACS</p>
+                                        </div>
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Outcome</p>
+                                            <p className={`text-xs font-black uppercase ${selectedMatchForStats.isWin ? 'text-emerald-500' : 'text-red-500'}`}>{selectedMatchForStats.isWin ? 'VICTORY' : 'DEFEAT'}</p>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-6">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Deployment Area</p>
-                                                <p className="text-sm font-black text-white uppercase italic">{matchIntelDetail.map}</p>
-                                            </div>
-                                            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Personnel Role</p>
-                                                <div className="flex items-center gap-2">
-                                                    <img
-                                                        src={`/assets/agents/${(matchIntelDetail.agent || '').replace('/', '_')}${matchIntelDetail.agent === 'Veto' ? '.webp' : '.png'}`}
-                                                        className="w-5 h-5 object-contain"
-                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                    />
-                                                    <p className="text-sm font-black text-white uppercase italic">{matchIntelDetail.agent} ({matchIntelDetail.role})</p>
+                                    {/* Map Result for this specific map */}
+                                    {(() => {
+                                        const matchResultsRaw = matchDetails?.scrim?.results || matchDetails?.scrim?.maps;
+                                        let mapResults: any[] = [];
+                                        if (matchResultsRaw) {
+                                            try { mapResults = JSON.parse(matchResultsRaw); } catch { }
+                                        }
+                                        // Only show the result for the specific map played
+                                        const thisMap = selectedMatchForStats.map;
+                                        const filtered = thisMap
+                                            ? mapResults.filter((r: any) => String(r.mapName || r.map || '').toLowerCase() === thisMap.toLowerCase())
+                                            : mapResults;
+                                        if (filtered.length === 0) return null;
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center space-x-4 text-indigo-400">
+                                                    <div className="w-1.5 h-6 bg-indigo-400 rounded-full" />
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">Map Result</p>
+                                                </div>
+                                                <div className="grid gap-3">
+                                                    {filtered.map((r: any, i: number) => {
+                                                        const mapName = r.mapName || r.map || thisMap || `Map ${i + 1}`;
+                                                        const score = r.score || '';
+                                                        const won = r.isVictory === true || (typeof score === 'string' && (() => { const [a, b] = score.split('-').map(Number); return !isNaN(a) && !isNaN(b) && a > b; })());
+                                                        const lost = r.isVictory === false || (typeof score === 'string' && (() => { const [a, b] = score.split('-').map(Number); return !isNaN(a) && !isNaN(b) && a < b; })());
+                                                        return (
+                                                            <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border ${won ? 'bg-emerald-500/5 border-emerald-500/20' : lost ? 'bg-red-500/5 border-red-500/20' : 'bg-white/5 border-white/5'}`}>
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[8px] ${won ? 'bg-emerald-500/20 text-emerald-500' : lost ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-slate-400'}`}>
+                                                                        {won ? 'W' : lost ? 'L' : 'D'}
+                                                                    </div>
+                                                                    <p className="text-xs font-black text-white uppercase italic">{mapName}</p>
+                                                                </div>
+                                                                {score && <p className="text-sm font-black text-amber-500 italic">{score}</p>}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
-                                        </div>
+                                        );
+                                    })()}
 
+                                    {matchDetails?.stats?.filter((st: any) => !selectedMatchForStats.map || st.map === selectedMatchForStats.map).length > 0 && (
                                         <div className="bg-white/[0.02] rounded-3xl border border-white/5 overflow-hidden">
-                                            <div className="p-5 border-b border-white/5">
-                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team Performance Registry</p>
+                                            <div className="p-5 border-b border-white/5 bg-white/[0.01]">
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Combat Registry Details</p>
                                             </div>
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-left border-collapse">
@@ -370,13 +780,11 @@ const PlayerStatsModal = ({ player, isOpen, onClose, userRole, currentUserId, tr
                                                         <tr className="bg-white/[0.01]">
                                                             <th className="px-6 py-4 text-[8px] font-black text-slate-600 uppercase tracking-widest">Operator</th>
                                                             <th className="px-6 py-4 text-[8px] font-black text-slate-600 uppercase tracking-widest text-center">K/D/A</th>
-                                                            <th className="px-6 py-4 text-[8px] font-black text-slate-600 uppercase tracking-widest text-center">KDA Ratio</th>
                                                             <th className="px-6 py-4 text-[8px] font-black text-slate-600 uppercase tracking-widest text-center">ACS</th>
-
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-white/5">
-                                                        {(matchIntelDetail.details?.stats || []).map((st: any, i: number) => (
+                                                        {(matchDetails?.stats || []).filter((st: any) => !selectedMatchForStats.map || st.map === selectedMatchForStats.map).map((st: any, i: number) => (
                                                             <tr key={i} className={st.playerId === player.id ? 'bg-amber-500/5' : ''}>
                                                                 <td className="px-6 py-4">
                                                                     <div className="flex items-center gap-3">
@@ -392,10 +800,7 @@ const PlayerStatsModal = ({ player, isOpen, onClose, userRole, currentUserId, tr
                                                                     <span className="text-xs font-black text-slate-400">{st.kills}/{st.deaths}/{st.assists}</span>
                                                                 </td>
                                                                 <td className="px-6 py-4 text-center">
-                                                                    <span className={`text-xs font-black ${getKDAColor(calculateKDA(st.kills, st.assists, st.deaths))}`}>{calculateKDA(st.kills, st.assists, st.deaths)}</span>
-                                                                </td>
-                                                                <td className="px-6 py-4 text-center">
-                                                                    <span className="text-xs font-black text-purple-400">{st.acs}</span>
+                                                                    <span className="text-xs font-black text-purple-400">{st.acs || 0}</span>
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -403,408 +808,14 @@ const PlayerStatsModal = ({ player, isOpen, onClose, userRole, currentUserId, tr
                                                 </table>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     <button
-                                        onClick={() => setMatchIntelDetail(null)}
-                                        className="w-full mt-8 py-4 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] transition-all border border-white/5"
+                                        onClick={() => setSelectedMatchForStats(null)}
+                                        className="w-full py-4 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] transition-all border border-white/5"
                                     >
-                                        Dismiss Report
+                                        Retract Analysis
                                     </button>
-                                </div>
-                            )}
-                        </Modal>
-
-                        {/* Header / Image Background */}
-                        <div className="relative h-[340px] md:h-[440px] overflow-hidden border-b border-white/5 bg-[#020617]">
-                            <div className="space-y-2 text-center pointer-events-none">
-                                <AnimatedTitle
-                                    text1="Hall of"
-                                    text2="Excellence"
-                                    className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic leading-[0.8]"
-                                />
-                                <div className="flex items-center justify-center w-full mt-2">
-                                    <div className="h-[1px] w-12 md:w-24 bg-amber-500/30"></div>
-                                    <p className="px-4 text-[7px] md:text-[9px] text-slate-500 font-black uppercase tracking-[0.5em] whitespace-nowrap">The Apex of Performance</p>
-                                    <div className="h-[1px] w-12 md:w-24 bg-amber-500/30"></div>
-                                </div>
-                            </div>
-
-                            <div className="pt-2">
-                                <span className="px-6 md:px-8 py-1.5 md:py-2 bg-amber-500 text-black text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] rounded-full shadow-[0_10px_20px_rgba(245,158,11,0.2)]">
-                                    Operative Profile
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col items-center space-y-4 pt-2 relative z-20">
-                                <div className="relative group">
-                                    <div className="absolute -inset-2 bg-amber-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                                    <img
-                                        src={player.image}
-                                        alt={player.name}
-                                        className="w-20 h-20 md:w-24 md:h-24 rounded-3xl border-2 border-amber-500/20 shadow-2xl object-cover bg-slate-800 relative z-10"
-                                    />
-                                </div>
-                                <div className="text-center space-y-1 md:space-y-2 pb-2">
-                                    <div className="flex items-center justify-center space-x-3 text-amber-500">
-                                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_15px_#fbbf24]" />
-                                        <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.4em]">{getTacticalRole(player.role)}</span>
-                                    </div>
-                                    <h3 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter italic leading-none">{player.name}</h3>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={onClose}
-                            className="absolute top-8 right-8 w-12 h-12 rounded-[18px] bg-[#020617]/60 backdrop-blur-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-red-500 hover:scale-110 active:scale-90 transition-all border border-white/10 z-[60] shadow-2xl group/close"
-                        >
-                            <svg className="w-6 h-6 transform group-hover/close:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-
-                    {/* content */}
-                    <div className="p-8 md:p-12 space-y-10 md:space-y-16 max-h-[55vh] overflow-y-auto custom-scrollbar relative z-10">
-
-                        {/* Basic Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                            <div className="bg-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 border border-white/5 text-center group hover:border-amber-500/30 transition-all">
-                                <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-1 md:mb-2">KDA Ratio</p>
-                                <p className="text-2xl md:text-3xl font-black text-white tracking-tighter group-hover:text-amber-400 transition-colors">{player.kda || '0.0'}</p>
-                                <p className="text-[7px] md:text-[9px] text-slate-600 font-bold uppercase tracking-widest mt-1">Lethality Index</p>
-                            </div>
-                            <div className="bg-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 border border-white/5 text-center group hover:border-purple-500/30 transition-all">
-                                <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-1 md:mb-2">ACS</p>
-                                <p className="text-2xl md:text-3xl font-black text-white tracking-tighter group-hover:text-purple-400 transition-colors">{player.acs || '0'}</p>
-                                <p className="text-[7px] md:text-[9px] text-slate-600 font-bold uppercase tracking-widest mt-1">Combat Score</p>
-                            </div>
-                            <div className="bg-white/5 rounded-2xl md:rounded-3xl p-4 md:p-6 border border-white/5 text-center group hover:border-emerald-500/30 transition-all">
-                                <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-1 md:mb-2">Win Rate</p>
-                                <p className="text-2xl md:text-3xl font-black text-white tracking-tighter group-hover:text-emerald-400 transition-colors">{player.winRate || '0%'}</p>
-                                <p className="text-[7px] md:text-[9px] text-slate-600 font-bold uppercase tracking-widest mt-1">Victory Vector</p>
-                            </div>
-                        </div>
-
-                        {/* Performance Analysis summary string */}
-                        {(player.winRate && player.winRate !== '0%') && (
-                            <div className="p-5 md:p-6 bg-amber-500/5 rounded-2xl md:rounded-3xl border border-amber-500/10">
-                                <div className="flex items-start space-x-4">
-                                    <div className="p-2.5 md:p-3 bg-amber-500/10 rounded-xl text-amber-500">
-                                        <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-[10px] md:text-sm font-black text-amber-500 uppercase tracking-widest mb-1">Performance Analysis</h4>
-                                        <p className="text-[10px] md:text-xs text-slate-400 font-medium leading-relaxed">
-                                            Operative <span className="text-white font-bold">{player.name}</span> is performing at optimal efficiency.
-                                            Combat metrics indicate strong <span className="text-white">{player.role}</span> capabilities with a {player.winRate} mission success rate.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Chart Container */}
-                        {showAdvancedIntel && (breakdown?.trendData?.length > 0 || trendData.length > 0) && (
-                            <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex items-center space-x-3 text-purple-500 mb-6">
-                                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full shadow-[0_0_10px_#a855f7] animate-pulse" />
-                                    <h4 className="text-[10px] md:text-sm font-black uppercase tracking-[0.3em]">Tactical Metric Trends</h4>
-                                </div>
-                                <div className="h-[250px] min-h-[250px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={breakdown?.trendData || trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="colorAcs" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <XAxis dataKey="date" stroke="#334155" fontSize={10} tickFormatter={(str) => {
-                                                const d = new Date(str);
-                                                return `${d.getMonth() + 1}/${d.getDate()}`;
-                                            }} />
-                                            <YAxis stroke="#334155" fontSize={10} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}
-                                                itemStyle={{ color: '#fbbf24' }}
-                                                labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
-                                                formatter={(value, name) => [value, 'ACS']}
-                                            />
-                                            <Area type="monotone" dataKey="acs" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorAcs)" activeDot={{ r: 6, strokeWidth: 0, fill: '#fbbf24' }} />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Advanced Breakdown for Managers/Coaches */}
-                        {showAdvancedIntel && userRole && isAuthorized(userRole) && breakdown && (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-4 cursor-default">
-                                <div className="h-px w-full bg-white/5" />
-
-                                <div className="flex items-center space-x-3 text-amber-500 mb-4">
-                                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_10px_#fbbf24] animate-pulse" />
-                                    <h4 className="text-[10px] md:text-sm font-black uppercase tracking-[0.3em]">Tactical Breakdown</h4>
-                                </div>
-
-                                {/* Agent Stats */}
-                                {breakdown.agentStats && breakdown.agentStats.length > 0 && (
-                                    <div className="space-y-3">
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest pl-2">Operator Affinities</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                            {breakdown.agentStats.map((s: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    onClick={() => setDetailView({ type: 'agent', name: s.name })}
-                                                    className="bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-between group hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all cursor-pointer relative overflow-hidden"
-                                                >
-                                                    <div className="absolute -right-2 -bottom-2 w-16 h-16 opacity-10 group-hover:opacity-20 transition-opacity">
-                                                        <img
-                                                            src={`/assets/agents/${(s.name || '').replace('/', '_')}${s.name === 'Veto' ? '.webp' : '.png'}`}
-                                                            className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500"
-                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-2 relative z-10">
-                                                        <img
-                                                            src={`/assets/agents/${(s.name || '').replace('/', '_')}${s.name === 'Veto' ? '.webp' : '.png'}`}
-                                                            className="w-6 h-6 object-contain drop-shadow-[0_0_5px_rgba(245,158,11,0.3)]"
-                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        />
-                                                        <div className="text-[10px] uppercase font-black tracking-widest text-indigo-400 group-hover:text-indigo-300 truncate">{s.name}</div>
-                                                    </div>
-                                                    <div className="mt-3 space-y-1.5 border-t border-white/5 pt-2 relative z-10">
-                                                        <div className="flex justify-between text-[8px] uppercase tracking-widest text-slate-400"><span>Games</span> <span className="text-white font-black">{s.games}</span></div>
-                                                        <div className="flex justify-between text-[8px] uppercase tracking-widest text-slate-400"><span>Win %</span> <span className={`${s.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'} font-black`}>{s.winRate}%</span></div>
-                                                        <div className="flex justify-between text-[8px] uppercase tracking-widest text-slate-400"><span>KDA</span> <span className="text-white font-black">{s.kd}</span></div>
-                                                        <div className="flex justify-between text-[8px] uppercase tracking-widest text-slate-400"><span>ACS</span> <span className="text-purple-400 font-black">{s.acs || 0}</span></div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Role Stats */}
-                                {breakdown.roleStats && breakdown.roleStats.length > 0 && (
-                                    <div className="space-y-3 pt-4">
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest pl-2">Class Proficiency</p>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {breakdown.roleStats.map((s: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    onClick={() => setDetailView({ type: 'role', name: s.name })}
-                                                    className="bg-white/5 border border-fuchsia-500/10 rounded-2xl p-4 flex flex-col justify-between group hover:border-fuchsia-500/30 hover:bg-fuchsia-500/5 transition-all cursor-pointer relative overflow-hidden"
-                                                >
-                                                    <div className="absolute -right-2 -bottom-2 w-16 h-16 opacity-10 group-hover:opacity-20 transition-opacity">
-                                                        <img
-                                                            src={`/assets/roles/${s.name}.png`}
-                                                            className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500"
-                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-2 relative z-10">
-                                                        <img
-                                                            src={`/assets/roles/${s.name}.png`}
-                                                            className="w-6 h-6 object-contain drop-shadow-[0_0_5px_rgba(217,70,239,0.3)]"
-                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        />
-                                                        <div className="text-[10px] uppercase font-black tracking-widest text-fuchsia-400 group-hover:text-fuchsia-300">{s.name}</div>
-                                                    </div>
-                                                    <div className="mt-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400 relative z-10">
-                                                        <div className="flex flex-col">
-                                                            <span className={`${s.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'} font-black`}>{s.winRate}% WR</span>
-                                                            <span className="text-[7px] text-purple-400">{s.acs || 0} Avg ACS</span>
-                                                        </div>
-                                                        <span className="px-2.5 py-1 bg-white/5 rounded-lg text-white font-black">{s.games} Played</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Map Stats */}
-                                {breakdown.mapStats && breakdown.mapStats.length > 0 && (
-                                    <div className="space-y-3 pt-4">
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest pl-2">Environment Performance</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {breakdown.mapStats.map((s: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    onClick={() => setDetailView({ type: 'map', name: s.name })}
-                                                    className="bg-white/5 border border-amber-500/10 rounded-2xl p-4 relative overflow-hidden group hover:border-amber-500/30 hover:bg-amber-500/5 transition-all cursor-pointer"
-                                                >
-                                                    <div className="text-[10px] md:text-xs uppercase font-black tracking-tight text-amber-500/80 mb-2 truncate group-hover:text-amber-400 relative z-10">{s.name}</div>
-                                                    <div className="flex items-center space-x-2 relative z-10">
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${s.winRate >= 50 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                                        <span className="text-[9px] text-white font-black">{s.winRate}%</span>
-                                                        <span className="text-[9px] text-slate-500 font-black px-1">• {s.games} Games</span>
-                                                        <span className="text-[9px] text-purple-400 font-black px-1">• {s.acs || 0} ACS</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Match History Section */}
-                                {breakdown.history && breakdown.history.length > 0 && (
-                                    <div className="space-y-6 pt-8 border-t border-white/5">
-                                        <div className="flex items-center space-x-3 text-emerald-500 mb-4">
-                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981] animate-pulse" />
-                                            <h4 className="text-[10px] md:text-sm font-black uppercase tracking-[0.3em]">Tactical Engagement Log</h4>
-                                        </div>
-                                        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {[...breakdown.history].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((m: any, idx: number) => (
-                                                <div
-                                                    key={idx}
-                                                    onClick={() => {
-                                                        if (m.matchId && m.type) {
-                                                            setSelectedMatchForStats({ id: m.matchId, type: m.type, opponent: m.opponent, date: m.date });
-                                                            setLoadingDetails(true);
-                                                            const endpoint = m.type === 'scrim' ? `scrims/${m.matchId}/stats` : `tournaments/${m.matchId}/stats`;
-                                                            fetch(`${GET_API_BASE_URL()}/api/${endpoint}`)
-                                                                .then(res => res.json())
-                                                                .then(result => {
-                                                                    if (result.success) setMatchDetails(Array.isArray(result.data) ? result.data : result.data.stats || []);
-                                                                })
-                                                                .catch(console.error)
-                                                                .finally(() => setLoadingDetails(false));
-                                                        }
-                                                    }}
-                                                    className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] transition-all cursor-pointer active:scale-[0.98]"
-                                                >
-                                                    <div className="flex items-center space-x-4">
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${m.isWin === 1 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                            {m.isWin === 1 ? 'W' : 'L'}
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-[10px] font-black text-white uppercase tracking-widest">{m.opponent || 'Unknown Opponent'}</div>
-                                                            <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-                                                                {new Date(m.date).toLocaleDateString()} • {m.map || 'N/A'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center space-x-6">
-                                                        <div className="text-center">
-                                                            <div className="text-xs font-black text-white">{m.kills}/{m.deaths}/{m.assists}</div>
-                                                            <div className="text-[7px] text-slate-600 font-black uppercase tracking-widest">KDA</div>
-                                                        </div>
-                                                        <div className="text-center w-12">
-                                                            <div className="text-xs font-black text-amber-500">{m.acs || 0}</div>
-                                                            <div className="text-[7px] text-amber-500/40 font-black uppercase tracking-widest">ACS</div>
-                                                        </div>
-                                                        <div className="hidden md:block">
-                                                            <div className="flex items-center space-x-2 bg-black/20 px-3 py-1.5 rounded-lg border border-white/5">
-                                                                <img
-                                                                    src={`/assets/agents/${(m.agent || 'Unknown').replace('/', '_')}${m.agent === 'Veto' ? '.webp' : '.png'}`}
-                                                                    className="w-4 h-4 object-contain"
-                                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                                />
-                                                                <span className="text-[9px] text-slate-400 font-black uppercase">{m.agent}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {(!breakdown.agentStats || breakdown.agentStats.length === 0) && (!breakdown.roleStats || breakdown.roleStats.length === 0) && (
-                                    <div className="py-8 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">No advanced intel available.</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {userRole && isAuthorized(userRole) && breakdownError && !loadingBreakdown && (
-                            <div className="flex flex-col items-center justify-center py-12 px-6 space-y-4 bg-red-500/5 rounded-[32px] border border-red-500/20 animate-in fade-in zoom-in-95 duration-500">
-                                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-2">
-                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                </div>
-                                <h5 className="text-red-500 font-black uppercase tracking-[0.4em] text-xs">Tactical Feed Disrupted</h5>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest text-center max-w-xs leading-relaxed">{breakdownError}</p>
-                                <button
-                                    onClick={() => {
-                                        setLoadingBreakdown(true);
-                                        setBreakdownError(null);
-                                    }}
-                                    className="mt-4 px-8 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-black rounded-xl text-[10px] font-black uppercase tracking-[0.3em] transition-all border border-red-500/20"
-                                >
-                                    Attempt Reconnection
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>}
-            </Modal>
-
-            <Modal isOpen={!!selectedMatchForStats} onClose={() => setSelectedMatchForStats(null)} zIndex={2000}>
-                {selectedMatchForStats && (
-                    <div className="bg-[#020617] p-8 md:p-12 rounded-[40px] shadow-2xl w-full max-w-4xl border border-white/10 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none" />
-
-                        <div className="relative z-10 space-y-8">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Engagement Analysis</h3>
-                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.4em] mt-2">
-                                        vs {selectedMatchForStats.opponent} • {new Date(selectedMatchForStats.date).toLocaleDateString()}
-                                    </p>
-                                </div>
-                                <button onClick={() => setSelectedMatchForStats(null)} className="text-slate-500 hover:text-white transition-colors">
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-
-                            {loadingDetails ? (
-                                <div className="py-20 flex flex-col items-center justify-center space-y-4">
-                                    <div className="w-12 h-12 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin" />
-                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Retrieving Neural Archives...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-12 gap-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                        <div className="col-span-4">Operator</div>
-                                        <div className="col-span-2 text-center text-indigo-400">Agent</div>
-                                        <div className="col-span-2 text-center">K/D/A</div>
-                                        <div className="col-span-2 text-center text-amber-500">ACS</div>
-                                        <div className="col-span-2 text-center">Map</div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {matchDetails.map((stat, idx) => (
-                                            <div key={idx} className="grid grid-cols-12 gap-4 items-center bg-white/[0.02] p-4 rounded-2xl border border-white/5">
-                                                <div className="col-span-4 flex items-center space-x-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-[10px] font-black text-emerald-500 border border-emerald-500/20">
-                                                        {idx + 1}
-                                                    </div>
-                                                    <span className="text-sm font-black text-white uppercase tracking-tight truncate">{stat.playerName || 'Unknown'}</span>
-                                                </div>
-                                                <div className="col-span-2 flex justify-center">
-                                                    <div className="flex items-center space-x-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
-                                                        <img
-                                                            src={`/assets/agents/${(stat.agent || 'Unknown').replace('/', '_')}${stat.agent === 'Veto' ? '.webp' : '.png'}`}
-                                                            className="w-4 h-4 object-contain"
-                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                        />
-                                                        <span className="text-[9px] text-slate-400 font-black uppercase">{stat.agent}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 text-center">
-                                                    <div className="text-xs font-black text-white">{stat.kills}/{stat.deaths}/{stat.assists}</div>
-                                                </div>
-                                                <div className="col-span-2 text-center">
-                                                    <div className="text-xs font-black text-amber-500">{stat.acs || 0}</div>
-                                                </div>
-                                                <div className="col-span-2 text-center">
-                                                    <span className="text-[10px] text-slate-500 font-bold uppercase">{stat.map || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
                                 </div>
                             )}
                         </div>

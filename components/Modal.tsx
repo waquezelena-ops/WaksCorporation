@@ -27,12 +27,30 @@ const Modal: React.FC<ModalProps> = ({
     zIndex = 200,
     closeOnBackdrop = true,
 }) => {
-    // Lock body scroll while modal is open
+    // Lock body scroll while modal is open (shared counter for nested modals)
     useEffect(() => {
         if (isOpen) {
-            const prev = document.body.style.overflow;
-            document.body.style.overflow = 'hidden';
-            return () => { document.body.style.overflow = prev; };
+            // Increment modal count
+            const currentCount = parseInt(document.body.dataset.modalCount || '0', 10);
+            const newCount = currentCount + 1;
+            document.body.dataset.modalCount = newCount.toString();
+
+            // Lock scroll if this is the first modal
+            if (newCount === 1) {
+                document.body.style.overflow = 'hidden';
+            }
+
+            return () => {
+                // Decrement modal count
+                const prevCount = parseInt(document.body.dataset.modalCount || '1', 10);
+                const nextCount = Math.max(0, prevCount - 1);
+                document.body.dataset.modalCount = nextCount.toString();
+
+                // Unlock scroll if this was the last modal
+                if (nextCount === 0) {
+                    document.body.style.overflow = '';
+                }
+            };
         }
     }, [isOpen]);
 

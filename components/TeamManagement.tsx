@@ -114,12 +114,52 @@ const TeamManagement: React.FC<{
         return roles.some(r => ['manager', 'admin', 'ceo', 'coach'].includes(r));
     };
 
+    const safeJSONParse = (data: any, fallback: any = []) => {
+        if (!data) return fallback;
+        try {
+            return typeof data === 'string' ? JSON.parse(data) : data;
+        } catch (e) {
+            console.warn("[JSON-PARSE-ERROR]", e, data);
+            return fallback;
+        }
+    };
+
     const getMapCount = (format: string) => {
         if (format === '2 Maps') return 2;
         if (format === '3 Maps') return 3;
         if (format === 'BO3') return 3;
         if (format === 'BO5') return 5;
         return 1; // Unified BO1 / 1 Map
+    };
+
+    const calculateSeriesResult = (scrim: any) => {
+        const results = safeJSONParse(scrim.results, []);
+        if (results.length === 0) return { score: '-', result: 'PENDING', color: 'text-slate-500' };
+
+        // Robustly determine wins and losses (handles both "WIN"/"LOSS" strings and numerical scores)
+        const getMapStatus = (r: any) => {
+            if (r.isVictory === true || (typeof r.score === 'string' && r.score.toUpperCase() === 'WIN')) return 1; // WIN
+            if (r.isVictory === false && typeof r.score === 'string' && r.score.toUpperCase() === 'LOSS') return 0; // LOSS
+
+            if (typeof r.score === 'string' && r.score.includes('-')) {
+                const [s1, s2] = r.score.split('-').map(str => parseInt(str.trim()));
+                if (!isNaN(s1) && !isNaN(s2)) {
+                    if (s1 > s2) return 1;
+                    if (s1 < s2) return 0;
+                    return 2;
+                }
+            }
+            return r.isVictory ? 1 : 0;
+        };
+
+        const wins = results.filter((r: any) => getMapStatus(r) === 1).length;
+        const losses = results.filter((r: any) => getMapStatus(r) === 0).length;
+
+        const score = `${wins}-${losses}`;
+
+        if (wins > losses) return { score, result: 'WIN', color: 'text-emerald-400' };
+        if (wins < losses) return { score, result: 'LOSS', color: 'text-red-400' };
+        return { score, result: 'DRAW', color: 'text-amber-400' };
     };
 
     const handleDateClick = (date: Date) => {
@@ -293,6 +333,27 @@ const TeamManagement: React.FC<{
         }
     };
 
+    const handleDeleteMatch = async (id: number) => {
+        if (!window.confirm(`Are you sure you want to terminate this ${labelSingular.toLowerCase()} operation? This action is IRREVERSIBLE.`)) return;
+
+        try {
+            const res = await fetch(`${GET_API_BASE_URL()}/api/${apiBase}/${id}?requesterId=${userId}`, {
+                method: 'DELETE'
+            });
+            const result = await res.json();
+            if (result.success) {
+                showNotification({ message: `${labelSingular} operation aborted.`, type: 'success' });
+                // Refresh local state
+                setScrims(prev => prev.filter(s => s.id !== id));
+            } else {
+                showNotification({ message: result.error || `Failed to abort ${labelSingular.toLowerCase()}`, type: 'error' });
+            }
+        } catch (e) {
+            console.error("Delete error:", e);
+            showNotification({ message: 'Network error during termination protocol', type: 'error' });
+        }
+    };
+
     const fetchScrimDetails = async (scrim: Scrim) => {
         try {
             const res = await fetch(`${GET_API_BASE_URL()}/api/${apiBase}/${scrim.id}/stats`);
@@ -318,8 +379,8 @@ const TeamManagement: React.FC<{
                                     ...stat,
                                     agent: playerMatch?.agent || stat.agent,
                                     role: playerMatch?.role || stat.role,
-                                    playerName: stat.name, // Ensure playerName is set if it came as name
-                                    playerImage: stat.image // Ensure playerImage is set
+                                    playerName: stat.playerName || stat.name || 'Unknown', // Prefer playerName, then name, then 'Unknown'
+                                    playerImage: stat.playerImage || stat.image // Prefer playerImage, then image
                                 };
                             });
                         }
@@ -516,7 +577,8 @@ const TeamManagement: React.FC<{
         // Send all individual performances to preserve agent, role, and map context
         const allPerformances: any[] = [];
         finalResults.forEach(mResult => {
-            const mapName = scrim.maps ? (JSON.parse(scrim.maps)[mResult.map - 1] || `Map ${mResult.map}`) : `Map ${mResult.map}`;
+            const m = safeJSONParse(scrim.maps);
+            const mapName = m[mResult.map - 1] || `Map ${mResult.map}`;
             mResult.results.forEach((p: PlayerStat) => {
                 if (p.playerId) {
                     allPerformances.push({
@@ -525,7 +587,16 @@ const TeamManagement: React.FC<{
                         deaths: Number(p.deaths),
                         assists: Number(p.assists),
                         acs: Number(p.acs || 0),
-                        isWin: mResult.isVictory ? 1 : 0,
+                        isWin: (() => {
+                            if (mResult.isVictory === true) return 1;
+                            if (typeof mResult.score === 'string' && mResult.score.includes('-')) {
+                                const [s1, s2] = mResult.score.split('-').map(Number);
+                                if (s1 > s2) return 1;
+                                if (s1 < s2) return 0;
+                                return 2;
+                            }
+                            return mResult.isVictory ? 1 : 0;
+                        })(),
                         agent: p.agent,
                         role: p.role,
                         map: mapName
@@ -701,31 +772,58 @@ const TeamManagement: React.FC<{
                                                 {new Date(scrim.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </td>
                                             <td className="px-6 md:px-8 py-5 md:py-8">
-                                                <div className="font-black text-white uppercase tracking-tight group-hover:text-amber-500 transition-colors text-xs md:text-base">{scrim.opponent}</div>
-                                                <div className="text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 italic">{isTournament ? 'Mission Progress' : 'Objective Secured'}</div>
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="font-black text-white uppercase tracking-tight group-hover:text-amber-500 transition-colors text-xs md:text-base">{scrim.opponent}</div>
+                                                    {scrim.status === 'completed' && (() => {
+                                                        const { score, color } = calculateSeriesResult(scrim);
+                                                        return (
+                                                            <span className={`text-[10px] md:text-xs font-black px-2 py-0.5 rounded border border-white/5 bg-white/[0.03] ${color} italic`}>
+                                                                {score}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <div className="text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 italic">
+                                                    {(() => {
+                                                        const m = safeJSONParse(scrim.maps);
+                                                        if (m.length > 0) {
+                                                            return m.map((mapName: string, i: number) => `Map ${i + 1}: ${mapName}`).join(' • ');
+                                                        }
+                                                        return isTournament ? 'Mission Progress' : 'Objective Secured';
+                                                    })()}
+                                                </div>
                                             </td>
                                             <td className="px-6 md:px-8 py-5 md:py-8">
                                                 <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[8px] md:text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(168,85,247,0.1)] whitespace-nowrap">{scrim.format}</span>
                                             </td>
                                             <td className="px-6 md:px-8 py-5 md:py-8">
-                                                <div className="relative inline-block">
-                                                    <select
-                                                        value={scrim.status}
-                                                        onChange={(e) => handleStatusUpdate(scrim.id, e.target.value)}
-                                                        disabled={!canEdit() || scrim.status !== 'pending'}
-                                                        className={`pl-4 pr-10 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest outline-none transition-all border appearance-none shadow-lg ${(!canEdit() || scrim.status !== 'pending') ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'} ${scrim.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
-                                                            scrim.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
-                                                                'bg-amber-500/10 text-amber-400 border-amber-500/30 ring-1 ring-amber-500/20 animate-pulse'
-                                                            }`}
-                                                    >
-                                                        <option value="pending" className="bg-[#1e1e2d]">PENDING</option>
-                                                        <option value="completed" className="bg-[#1e1e2d]">COMPLETED</option>
-                                                        <option value="cancelled" className="bg-[#1e1e2d]">CANCELLED</option>
-                                                    </select>
-                                                    <div className={`absolute inset-y-0 right-3 flex items-center pointer-events-none transition-colors ${scrim.status === 'completed' ? 'text-emerald-400/50' : scrim.status === 'cancelled' ? 'text-red-400/50' : 'text-amber-400/50'}`}>
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+                                                {scrim.status === 'completed' ? (() => {
+                                                    const { result, color } = calculateSeriesResult(scrim);
+                                                    return (
+                                                        <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${color.replace('text-', 'bg-').replace('-400', '-500/10')} ${color.replace('text-', 'border-').replace('-400', '-500/30')} ${color} inline-block`}>
+                                                            {result}
+                                                        </div>
+                                                    );
+                                                })() : (
+                                                    <div className="relative inline-block">
+                                                        <select
+                                                            value={scrim.status}
+                                                            onChange={(e) => handleStatusUpdate(scrim.id, e.target.value)}
+                                                            disabled={!canEdit() || (scrim.status !== 'pending' && scrim.status !== 'cancelled')}
+                                                            className={`pl-4 pr-10 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest outline-none transition-all border appearance-none shadow-lg ${(!canEdit() || (scrim.status !== 'pending' && scrim.status !== 'cancelled')) ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'} ${scrim.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                                                                scrim.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+                                                                    'bg-amber-500/10 text-amber-400 border-amber-500/30 ring-1 ring-amber-500/20 animate-pulse'
+                                                                }`}
+                                                        >
+                                                            <option value="pending" className="bg-[#1e1e2d]">PENDING</option>
+                                                            <option value="completed" className="bg-[#1e1e2d]">COMPLETED</option>
+                                                            <option value="cancelled" className="bg-[#1e1e2d]">CANCELLED</option>
+                                                        </select>
+                                                        <div className={`absolute inset-y-0 right-3 flex items-center pointer-events-none transition-colors ${scrim.status === 'completed' ? 'text-emerald-400/50' : scrim.status === 'cancelled' ? 'text-red-400/50' : 'text-amber-400/50'}`}>
+                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </td>
                                             <td className="px-6 md:px-8 py-5 md:py-8 text-right">
                                                 {scrim.status === 'completed' ? (
@@ -737,25 +835,115 @@ const TeamManagement: React.FC<{
                                                             Analyze Intel
                                                         </button>
                                                         {canEdit() && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedScrimId(scrim.id);
+                                                                        setSelectedTeamId(scrim.teamId);
+                                                                        const existingResultsArr = scrim.results ? JSON.parse(scrim.results) : [];
+                                                                        const init: any = {};
+                                                                        existingResultsArr.forEach((r: any) => {
+                                                                            init[r.map] = {
+                                                                                image: r.image,
+                                                                                results: {
+                                                                                    isVictory: r.isVictory,
+                                                                                    score: r.score,
+                                                                                    results: r.results
+                                                                                }
+                                                                            };
+                                                                        });
+                                                                        const count = getMapCount(scrim.format);
+                                                                        for (let i = 1; i <= count; i++) {
+                                                                            if (!init[i]) init[i] = { image: null, results: { isVictory: false, score: '0-0', results: [] } };
+                                                                        }
+                                                                        setMapResults(init);
+                                                                        setActiveMapTab(1);
+                                                                        setView('upload-result');
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black border border-amber-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Edit Stats
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteMatch(scrim.id);
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-red-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Term. Mission
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : scrim.status === 'cancelled' ? (
+                                                    <div className="flex justify-end space-x-2 items-center">
+                                                        <div className="px-4 md:px-6 py-2 bg-white/5 text-slate-600 border border-white/5 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl italic whitespace-nowrap">
+                                                            Op Cancelled
+                                                        </div>
+                                                        {canEdit() && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const d = new Date(scrim.date);
+                                                                        const offset = d.getTimezoneOffset() * 60000;
+                                                                        const localIso = new Date(d.getTime() - offset).toISOString().slice(0, 16);
+
+                                                                        setScrimDate(localIso);
+                                                                        setScrimOpponent(scrim.opponent);
+                                                                        setScrimFormat(scrim.format);
+                                                                        setSelectedMaps(safeJSONParse(scrim.maps));
+                                                                        setSelectedScrimId(scrim.id);
+                                                                        setIsEditingDetails(true);
+                                                                        setView('add-scrim');
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black border border-amber-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Edit Deployment
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteMatch(scrim.id);
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-red-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Term. Mission
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex justify-end space-x-2">
+                                                        {canSubmit(scrim) && (
                                                             <button
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setSelectedScrimId(scrim.id);
-                                                                    setSelectedTeamId(scrim.teamId);
-                                                                    const existingResultsArr = scrim.results ? JSON.parse(scrim.results) : [];
+                                                                    setSelectedTeamId(scrim.teamId); // Hardlock sector to scrim owner
+                                                                    const count = getMapCount(scrim.format);
                                                                     const init: any = {};
-                                                                    existingResultsArr.forEach((r: any) => {
-                                                                        init[r.map] = {
-                                                                            image: r.image,
+                                                                    const rosterPlayers = currentTeam?.players.filter(p => p.id > 0).map(p => ({
+                                                                        name: p.name,
+                                                                        playerId: p.id,
+                                                                        kills: 0,
+                                                                        deaths: 0,
+                                                                        assists: 0,
+                                                                        acs: 0,
+                                                                        agent: '',
+                                                                        role: ''
+                                                                    })) || [];
+                                                                    for (let i = 1; i <= count; i++) {
+                                                                        init[i] = {
+                                                                            image: null,
                                                                             results: {
-                                                                                isVictory: r.isVictory,
-                                                                                score: r.score,
-                                                                                results: r.results
+                                                                                isVictory: false,
+                                                                                score: '0-0',
+                                                                                results: [...rosterPlayers]
                                                                             }
                                                                         };
-                                                                    });
-                                                                    const count = getMapCount(scrim.format);
-                                                                    for (let i = 1; i <= count; i++) {
-                                                                        if (!init[i]) init[i] = { image: null, results: { isVictory: false, score: '0-0', results: [] } };
                                                                     }
                                                                     setMapResults(init);
                                                                     setActiveMapTab(1);
@@ -763,51 +951,42 @@ const TeamManagement: React.FC<{
                                                                 }}
                                                                 className="px-4 md:px-6 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black border border-amber-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap"
                                                             >
-                                                                Edit Stats
+                                                                Upload Data
                                                             </button>
                                                         )}
+                                                        {canEdit() && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const d = new Date(scrim.date);
+                                                                        const offset = d.getTimezoneOffset() * 60000;
+                                                                        const localIso = new Date(d.getTime() - offset).toISOString().slice(0, 16);
+
+                                                                        setScrimDate(localIso);
+                                                                        setScrimOpponent(scrim.opponent);
+                                                                        setScrimFormat(scrim.format);
+                                                                        setSelectedMaps(scrim.maps ? JSON.parse(scrim.maps) : []);
+                                                                        setSelectedScrimId(scrim.id);
+                                                                        setIsEditingDetails(true);
+                                                                        setView('add-scrim');
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black border border-amber-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Edit Deployment
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteMatch(scrim.id);
+                                                                    }}
+                                                                    className="px-4 md:px-6 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-red-500/30 active:scale-95 whitespace-nowrap"
+                                                                >
+                                                                    Term. Mission
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
-                                                ) : scrim.status === 'cancelled' ? (
-                                                    <div className="px-4 md:px-6 py-2 bg-white/5 text-slate-600 border border-white/5 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl italic whitespace-nowrap">
-                                                        Op Cancelled
-                                                    </div>
-                                                ) : (
-                                                    canSubmit(scrim) && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedScrimId(scrim.id);
-                                                                setSelectedTeamId(scrim.teamId); // Hardlock sector to scrim owner
-                                                                const count = getMapCount(scrim.format);
-                                                                const init: any = {};
-                                                                const rosterPlayers = currentTeam?.players.filter(p => p.id > 0).map(p => ({
-                                                                    name: p.name,
-                                                                    playerId: p.id,
-                                                                    kills: 0,
-                                                                    deaths: 0,
-                                                                    assists: 0,
-                                                                    acs: 0,
-                                                                    agent: '',
-                                                                    role: ''
-                                                                })) || [];
-                                                                for (let i = 1; i <= count; i++) {
-                                                                    init[i] = {
-                                                                        image: null,
-                                                                        results: {
-                                                                            isVictory: false,
-                                                                            score: '0-0',
-                                                                            results: [...rosterPlayers]
-                                                                        }
-                                                                    };
-                                                                }
-                                                                setMapResults(init);
-                                                                setActiveMapTab(1);
-                                                                setView('upload-result');
-                                                            }}
-                                                            className="px-4 md:px-6 py-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black border border-amber-500/20 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-lg md:rounded-xl transition-all shadow-xl hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap"
-                                                        >
-                                                            Upload Data
-                                                        </button>
-                                                    )
                                                 )}
                                             </td>
                                         </tr>
@@ -1131,6 +1310,14 @@ const TeamManagement: React.FC<{
                                 </div>
                                 <div className="space-y-1 md:space-y-2">
                                     <p className="text-lg md:text-xl font-black text-white uppercase italic">Awaiting Visual Intelligence</p>
+                                    <p className="text-[8px] md:text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em]">
+                                        {(() => {
+                                            const scrim = scrims.find(s => s.id === selectedScrimId);
+                                            const m = safeJSONParse(scrim?.maps);
+                                            const mapName = m[activeMapTab - 1] || 'Unknown Theater';
+                                            return `TARGET: ${mapName.toUpperCase()}`;
+                                        })()}
+                                    </p>
                                     <p className="text-[8px] md:text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em]">Upload {getAvailableMaps().length === 1 ? 'Game' : 'Component'} {activeMapTab} Analytics Feed</p>
                                 </div>
                             </div>
@@ -1192,11 +1379,13 @@ const TeamManagement: React.FC<{
                                                         const scoreStr = currentResults.score || '0-0';
                                                         const opp = scoreStr.includes('-') ? scoreStr.split('-')[1] : '0';
                                                         const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                        const newScore = `${val}-${opp}`;
+                                                        const newIsVictory = val > parseInt(opp);
                                                         setMapResults(prev => ({
                                                             ...prev,
                                                             [activeMapTab]: {
                                                                 ...prev[activeMapTab],
-                                                                results: { ...currentResults, score: `${val}-${opp}` }
+                                                                results: { ...currentResults, score: newScore, isVictory: newIsVictory }
                                                             }
                                                         }));
                                                     }}
@@ -1223,11 +1412,13 @@ const TeamManagement: React.FC<{
                                                         const scoreStr = currentResults.score || '0-0';
                                                         const our = scoreStr.includes('-') ? scoreStr.split('-')[0] : '0';
                                                         const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                        const newScore = `${our}-${val}`;
+                                                        const newIsVictory = parseInt(our) > val;
                                                         setMapResults(prev => ({
                                                             ...prev,
                                                             [activeMapTab]: {
                                                                 ...prev[activeMapTab],
-                                                                results: { ...currentResults, score: `${our}-${val}` }
+                                                                results: { ...currentResults, score: newScore, isVictory: newIsVictory }
                                                             }
                                                         }));
                                                     }}
@@ -1429,29 +1620,70 @@ const TeamManagement: React.FC<{
                         <div className="space-y-3 pt-4">
                             <div className="max-h-[200px] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-white/10 group-hover/modal:scrollbar-thumb-amber-500/30">
                                 {scrimActionModal.scrims.map(s => (
-                                    <button
-                                        key={s.id}
-                                        onClick={() => {
-                                            fetchScrimDetails(s);
-                                            setScrimActionModal(null);
-                                        }}
-                                        className="w-full p-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all text-left group/scrim shadow-lg active:scale-[0.98]"
-                                    >
-                                        <div className="flex justify-between items-center">
-                                            <div className="space-y-1">
-                                                <div className="text-[10px] font-black text-white uppercase tracking-tighter">
-                                                    vs <span className="text-amber-500">{s.opponent}</span>
+                                    <div key={s.id} className="w-full bg-white/5 rounded-2xl border border-white/10 overflow-hidden group/scrim shadow-lg">
+                                        <button
+                                            onClick={() => {
+                                                fetchScrimDetails(s);
+                                                setScrimActionModal(null);
+                                            }}
+                                            className="w-full p-4 hover:bg-white/10 transition-all text-left active:scale-[0.98]"
+                                        >
+                                            <div className="flex justify-between items-center">
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-black text-white uppercase tracking-tighter">
+                                                        vs <span className="text-amber-500">{s.opponent}</span>
+                                                    </div>
+                                                    <div className="text-[8px] text-amber-500/80 font-black uppercase tracking-widest mt-0.5">
+                                                        {(() => {
+                                                            const m = safeJSONParse(s.maps);
+                                                            if (m.length > 0) {
+                                                                return m.map((mapName: string, i: number) => `Map ${i + 1}: ${mapName}`).join(' • ');
+                                                            }
+                                                            return '';
+                                                        })()}
+                                                    </div>
+                                                    <div className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">
+                                                        {new Date(s.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {s.format}
+                                                    </div>
                                                 </div>
-                                                <div className="text-[8px] text-slate-500 font-black uppercase tracking-widest">
-                                                    {new Date(s.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {s.format}
-                                                </div>
+                                                <div className={`w-2 h-2 rounded-full ${s.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' :
+                                                    s.status === 'cancelled' ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' :
+                                                        'bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]'
+                                                    }`} />
                                             </div>
-                                            <div className={`w-2 h-2 rounded-full ${s.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' :
-                                                s.status === 'cancelled' ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' :
-                                                    'bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]'
-                                                }`} />
-                                        </div>
-                                    </button>
+                                        </button>
+                                        {canEdit() && s.status !== 'completed' && (
+                                            <div className="flex border-t border-white/5">
+                                                <button
+                                                    onClick={() => {
+                                                        const d = new Date(s.date);
+                                                        const offset = d.getTimezoneOffset() * 60000;
+                                                        const localIso = new Date(d.getTime() - offset).toISOString().slice(0, 16);
+                                                        setScrimDate(localIso);
+                                                        setScrimOpponent(s.opponent);
+                                                        setScrimFormat(s.format);
+                                                        setSelectedMaps(safeJSONParse(s.maps));
+                                                        setSelectedScrimId(s.id);
+                                                        setIsEditingDetails(true);
+                                                        setView('add-scrim');
+                                                        setScrimActionModal(null);
+                                                    }}
+                                                    className="flex-1 py-2 text-[7px] font-black uppercase tracking-widest text-amber-500/60 hover:text-amber-500 bg-amber-500/5 hover:bg-amber-500/10 transition-all border-r border-white/5"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        handleDeleteMatch(s.id);
+                                                        setScrimActionModal(null);
+                                                    }}
+                                                    className="flex-1 py-2 text-[7px] font-black uppercase tracking-widest text-red-500/60 hover:text-red-500 bg-red-500/5 hover:bg-red-500/10 transition-all"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
 
@@ -1483,10 +1715,28 @@ const TeamManagement: React.FC<{
                             <h2 className="text-2xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-tight">
                                 vs <span className="text-amber-500">{scrimDetailModal.opponent}</span>
                             </h2>
-                            <div className="text-slate-500 font-bold flex flex-wrap items-center gap-4 md:gap-6 text-xs md:text-sm uppercase tracking-[0.2em] pt-4">
+                            <div className="text-slate-500 font-bold flex flex-wrap items-center gap-2 md:gap-4 text-[10px] md:text-xs uppercase tracking-[0.2em] pt-4">
                                 <span className="bg-white/5 px-4 py-1.5 rounded-xl border border-white/5 whitespace-nowrap">{new Date(scrimDetailModal.date).toLocaleString()}</span>
-                                <span className="hidden md:inline text-amber-500/40">•</span>
                                 <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-xl whitespace-nowrap">{scrimDetailModal.format}</span>
+                                {scrimDetailModal.status === 'completed' && (() => {
+                                    const { score, result, color } = calculateSeriesResult(scrimDetailModal);
+                                    return (
+                                        <div className={`flex items-center space-x-2 px-4 py-1.5 rounded-xl border ${color.replace('text-', 'bg-').replace('-400', '-500/10')} ${color.replace('text-', 'border-').replace('-400', '-500/30')} shadow-[0_0_20px_rgba(245,158,11,0.1)]`}>
+                                            <span className="text-[8px] font-black text-slate-500 tracking-[0.2em]">MISSION STATUS:</span>
+                                            <span className={`font-black tracking-widest ${color}`}>{result} ({score})</span>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {(() => {
+                                    const m = safeJSONParse(scrimDetailModal.maps);
+                                    return m.map((mapName: string, i: number) => (
+                                        <span key={i} className="text-[8px] md:text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1 rounded-lg font-black uppercase tracking-widest">
+                                            Map {i + 1}: {mapName}
+                                        </span>
+                                    ));
+                                })()}
                             </div>
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -1563,114 +1813,117 @@ const TeamManagement: React.FC<{
                             }
                         })()}
 
-                        {/* Player Stats */}
-                        <div className="space-y-6 md:space-y-8">
-                            <div className="flex justify-between items-end">
-                                <h3 className="text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] md:tracking-[0.5em] ml-2">Per-Operator Analytics</h3>
-                                <div className="h-px bg-white/5 flex-grow mx-4 md:mx-8 mb-1.5" />
-                            </div>
-                            <div className="overflow-x-auto bg-white/[0.02] rounded-[32px] md:rounded-[40px] border border-white/5 shadow-inner custom-scrollbar">
-                                <table className="w-full text-left border-collapse min-w-[800px] md:min-w-full">
-                                    <thead>
-                                        <tr className="border-b border-white/5 text-[8px] md:text-[10px] uppercase font-black tracking-[0.3em] md:tracking-[0.4em] text-slate-500">
-                                            <th className="p-4 md:p-6 whitespace-nowrap">Operator identity</th>
-                                            {isValorantFamily && <th className="p-4 md:p-6 text-center whitespace-nowrap text-indigo-400">Agent</th>}
-                                            {isValorantFamily && <th className="p-4 md:p-6 text-center whitespace-nowrap text-fuchsia-400">Role</th>}
-                                            <th className="p-4 md:p-6 text-center whitespace-nowrap">K / D / A</th>
-                                            <th className="p-4 md:p-6 text-center whitespace-nowrap">KDA Ratio</th>
-                                            <th className="p-4 md:p-6 text-center text-amber-500 whitespace-nowrap">ACS</th>
+                        {/* Player Stats Grouped by Map */}
+                        <div className="space-y-12 pb-12">
+                            {(() => {
+                                const stats = (scrimDetailModal as any).stats || [];
+                                if (stats.length === 0) {
+                                    return (
+                                        <div className="p-24 text-center">
+                                            <div className="flex flex-col items-center space-y-4 opacity-50">
+                                                <svg className="w-12 h-12 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">No tactical data archived for this operation</p>
+                                            </div>
+                                        </div>
+                                    );
+                                }
 
+                                // Group stats by map
+                                const groupedStats: Record<string, any[]> = {};
+                                stats.forEach((s: any) => {
+                                    const mapName = s.map || 'Unknown Theater';
+                                    if (!groupedStats[mapName]) groupedStats[mapName] = [];
+                                    groupedStats[mapName].push(s);
+                                });
 
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {(scrimDetailModal as any).stats?.map((stat: any, idx: number) => (
-                                            <tr key={idx} onClick={() => {
-                                                setSelectedPlayerForStats({
-                                                    id: stat.playerId,
-                                                    name: stat.playerName,
-                                                    role: stat.role,
-                                                    image: stat.playerImage,
-                                                    acs: stat.acs?.toString(),
-                                                    userId: stat.playerUserId,
-                                                    kda: calculateKDA(stat.kills, stat.assists, stat.deaths)
-                                                });
-                                                setIsPlayerStatsModalOpen(true);
-                                            }} className="group/stat hover:bg-white/[0.02] transition-colors cursor-pointer text-sm">
-                                                <td className="p-4 md:p-6 whitespace-nowrap">
+                                return Object.entries(groupedStats).map(([mapName, mapStats], gIdx) => (
+                                    <div key={mapName} className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: `${gIdx * 150}ms` }}>
+                                        <div className="flex justify-between items-end px-6">
+                                            <div className="space-y-1">
+                                                <h3 className="text-[10px] md:text-xs font-black text-amber-500 uppercase tracking-[0.5em]">Theater Phase: {mapName}</h3>
+                                                <div className="h-px bg-gradient-to-r from-amber-500/50 to-transparent w-32" />
+                                            </div>
+                                        </div>
 
-                                                    <div className="flex items-center space-x-4 md:space-x-6">
-                                                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shadow-2xl group-hover/stat:border-amber-500/50 transition-colors relative">
-                                                            {stat.playerImage ? (
-                                                                <img src={stat.playerImage} className="w-full h-full object-cover group-hover/stat:scale-110 transition-transform duration-700" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-slate-700 font-black">?</div>
+                                        <div className="overflow-x-auto bg-white/[0.02] rounded-[32px] md:rounded-[40px] border border-white/5 shadow-inner custom-scrollbar mx-4">
+                                            <table className="w-full text-left border-collapse min-w-[800px] md:min-w-full">
+                                                <thead>
+                                                    <tr className="border-b border-white/5 text-[8px] md:text-[10px] uppercase font-black tracking-[0.3em] md:tracking-[0.4em] text-slate-500">
+                                                        <th className="p-4 md:p-6 whitespace-nowrap">Operator identity</th>
+                                                        {isValorantFamily && <th className="p-4 md:p-6 text-center whitespace-nowrap text-indigo-400">Agent</th>}
+                                                        {isValorantFamily && <th className="p-4 md:p-6 text-center whitespace-nowrap text-fuchsia-400">Role</th>}
+                                                        <th className="p-4 md:p-6 text-center whitespace-nowrap">K / D / A</th>
+                                                        <th className="p-4 md:p-6 text-center whitespace-nowrap">KDA Ratio</th>
+                                                        <th className="p-4 md:p-6 text-center text-amber-500 whitespace-nowrap">ACS</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {mapStats.map((stat: any, idx: number) => (
+                                                        <tr key={idx} onClick={() => {
+                                                            setSelectedPlayerForStats({
+                                                                id: stat.playerId,
+                                                                name: stat.playerName || stat.name || 'Unknown',
+                                                                role: stat.role,
+                                                                image: stat.playerImage || stat.image,
+                                                                acs: stat.acs?.toString(),
+                                                                userId: stat.playerUserId,
+                                                                kda: calculateKDA(stat.kills, stat.assists, stat.deaths)
+                                                            });
+                                                            setIsPlayerStatsModalOpen(true);
+                                                        }} className="group/stat hover:bg-white/[0.02] transition-colors cursor-pointer text-sm">
+                                                            <td className="p-4 md:p-6 whitespace-nowrap">
+                                                                <div className="flex items-center space-x-4 md:space-x-6">
+                                                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shadow-2xl group-hover/stat:border-amber-500/50 transition-colors relative">
+                                                                        {(stat.playerImage || stat.image) ? (
+                                                                            <img src={stat.playerImage || stat.image} className="w-full h-full object-cover group-hover/stat:scale-110 transition-transform duration-700" />
+                                                                        ) : (
+                                                                            <div className="w-full h-full flex items-center justify-center text-slate-700 font-black">?</div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="space-y-0.5">
+                                                                        <span className="text-base md:text-lg font-black text-white italic uppercase tracking-tighter group-hover/stat:text-amber-500 transition-colors line-clamp-1">{stat.playerName || stat.name || 'REDACTED'}</span>
+                                                                        <div className="text-[8px] md:text-[9px] text-slate-600 font-black uppercase tracking-widest line-clamp-1">Certified Combatant</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            {isValorantFamily && (
+                                                                <td className="p-4 md:p-6 text-center font-black text-lg md:text-xl text-indigo-400 italic tracking-tighter uppercase">
+                                                                    <div className="flex items-center justify-center gap-3">
+                                                                        <img
+                                                                            src={getAgentImage(stat.agent || '')}
+                                                                            className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(79,70,229,0.3)] group-hover/stat:scale-110 transition-transform duration-500"
+                                                                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                                        />
+                                                                        <span>{stat.agent || 'N/A'}</span>
+                                                                    </div>
+                                                                </td>
                                                             )}
-                                                        </div>
-                                                        <div className="space-y-0.5">
-                                                            <span className="text-base md:text-lg font-black text-white italic uppercase tracking-tighter group-hover/stat:text-amber-500 transition-colors line-clamp-1">{stat.playerName || 'REDACTED'}</span>
-
-                                                            <div className="text-[8px] md:text-[9px] text-slate-600 font-black uppercase tracking-widest line-clamp-1">Certified Combatant</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                {isValorantFamily && (
-                                                    <td className="p-4 md:p-6 text-center font-black text-lg md:text-xl text-indigo-400 italic tracking-tighter uppercase">
-                                                        <div className="flex items-center justify-center gap-3">
-                                                            <img
-                                                                src={getAgentImage(stat.agent || '')}
-                                                                className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(79,70,229,0.3)] group-hover/stat:scale-110 transition-transform duration-500"
-                                                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                            />
-                                                            <span>{stat.agent || 'N/A'}</span>
-                                                        </div>
-                                                    </td>
-                                                )}
-                                                {isValorantFamily && (
-                                                    <td className="p-4 md:p-6 text-center font-black text-lg md:text-xl text-fuchsia-400 italic tracking-tighter uppercase">{stat.role || 'N/A'}</td>
-                                                )}
-                                                <td className="p-4 md:p-6 text-center">
-                                                    <div className="text-lg md:text-xl font-black text-white italic tracking-tighter tabular-nums">
-                                                        {stat.kills}/{stat.deaths}/{stat.assists}
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 md:p-6 text-center">
-                                                    <div className={`text-lg md:text-xl font-black italic tracking-tighter tabular-nums ${getKDAColor(calculateKDA(stat.kills, stat.assists, stat.deaths))}`}>
-                                                        {calculateKDA(stat.kills, stat.assists, stat.deaths)}
-                                                    </div>
-                                                    <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-700 mt-1">KDA RATIO</div>
-                                                </td>
-                                                <td className="p-4 md:p-6 text-center">
-                                                    <span className="text-xl md:text-2xl font-black italic tracking-tighter text-amber-500 tabular-nums shadow-amber-500/20">{stat.acs || '000'}</span>
-                                                    <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-amber-500/40 mt-1">ACS</div>
-                                                </td>
-
-                                            </tr>
-                                        ))}
-                                        {!(scrimDetailModal as any).stats && (
-                                            <tr>
-                                                <td colSpan={6} className="p-24 text-center">
-                                                    <div className="flex flex-col items-center space-y-4 opacity-50">
-                                                        <span className="w-12 h-12 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
-                                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">Deciphering Tactical Data Stream...</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {(scrimDetailModal as any).stats?.length === 0 && (
-                                            <tr>
-                                                <td colSpan={6} className="p-24 text-center">
-                                                    <div className="flex flex-col items-center space-y-4 opacity-50">
-                                                        <svg className="w-12 h-12 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">No stats recorded yet</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-
-                                    </tbody>
-                                </table>
-                            </div>
+                                                            {isValorantFamily && (
+                                                                <td className="p-4 md:p-6 text-center font-black text-lg md:text-xl text-fuchsia-400 italic tracking-tighter uppercase">{stat.role || 'N/A'}</td>
+                                                            )}
+                                                            <td className="p-4 md:p-6 text-center">
+                                                                <div className="text-lg md:text-xl font-black text-white italic tracking-tighter tabular-nums">
+                                                                    {stat.kills}/{stat.deaths}/{stat.assists}
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4 md:p-6 text-center">
+                                                                <div className={`text-lg md:text-xl font-black italic tracking-tighter tabular-nums ${getKDAColor(calculateKDA(stat.kills, stat.assists, stat.deaths))}`}>
+                                                                    {calculateKDA(stat.kills, stat.assists, stat.deaths)}
+                                                                </div>
+                                                                <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-700 mt-1">KDA RATIO</div>
+                                                            </td>
+                                                            <td className="p-4 md:p-6 text-center">
+                                                                <span className="text-xl md:text-2xl font-black italic tracking-tighter text-amber-500 tabular-nums shadow-amber-500/20">{stat.acs || '000'}</span>
+                                                                <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-amber-500/40 mt-1">ACS</div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ));
+                            })()}
                         </div>
                     </div>
 
@@ -1686,7 +1939,7 @@ const TeamManagement: React.FC<{
                 </div>}
             </Modal>
 
-            <Modal isOpen={!!selectedIntelImage} onClose={() => setSelectedIntelImage(null)} zIndex={300} backdropClassName="bg-black/98 backdrop-blur-3xl animate-in fade-in zoom-in duration-500" className="w-full h-full flex items-center justify-center p-4 md:p-12">
+            <Modal isOpen={!!selectedIntelImage} onClose={() => setSelectedIntelImage(null)} zIndex={5000} backdropClassName="bg-black/98 backdrop-blur-3xl animate-in fade-in zoom-in duration-500" className="w-full h-full flex items-center justify-center p-4 md:p-12">
                 {selectedIntelImage && <div className="relative max-w-7xl max-h-full flex items-center justify-center group/visualizer" onClick={() => setSelectedIntelImage(null)}>
                     <div className="absolute -inset-4 bg-amber-500/10 rounded-[40px] blur-3xl opacity-0 group-hover/visualizer:opacity-100 transition-opacity duration-1000" />
                     <img

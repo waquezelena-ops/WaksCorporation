@@ -1,4 +1,4 @@
-import { pgTable, text, integer, serial, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
     id: serial('id').primaryKey(),
@@ -26,7 +26,10 @@ export const scrims = pgTable('scrims', {
     status: text('status').default('pending'),
     results: text('results'),
     maps: text('maps'),
-});
+}, (t) => ({
+    teamIdIdx: index('scrims_team_id_idx').on(t.teamId),
+    statusIdx: index('scrims_status_idx').on(t.status),
+}));
 
 export const scrimPlayerStats = pgTable('scrim_player_stats', {
     id: serial('id').primaryKey(),
@@ -40,7 +43,10 @@ export const scrimPlayerStats = pgTable('scrim_player_stats', {
     agent: text('agent'),
     role: text('role'),
     map: text('map'),
-});
+}, (t) => ({
+    scrimIdIdx: index('scrim_player_stats_scrim_id_idx').on(t.scrimId),
+    playerIdIdx: index('scrim_player_stats_player_id_idx').on(t.playerId),
+}));
 
 export const achievements = pgTable('achievements', {
     id: serial('id').primaryKey(),
@@ -60,7 +66,9 @@ export const events = pgTable('events', {
     description: text('description'),
     status: text('status').default('upcoming'),
     image: text('image'),
-});
+}, (t) => ({
+    statusIdx: index('events_status_idx').on(t.status),
+}));
 
 export const sponsors = pgTable('sponsors', {
     id: serial('id').primaryKey(),
@@ -69,10 +77,12 @@ export const sponsors = pgTable('sponsors', {
     logo: text('logo').notNull(),
     description: text('description'),
     website: text('website'),
-    userId: integer('user_id').references(() => users.id), // Link to the user who represents this sponsor
+    userId: integer('user_id').references(() => users.id),
     qrEWallet: text('qr_ewallet'),
     qrBank: text('qr_bank'),
-});
+}, (t) => ({
+    userIdIdx: index('sponsors_user_id_idx').on(t.userId),
+}));
 
 export const siteSettings = pgTable('site_settings', {
     id: serial('id').primaryKey(),
@@ -87,7 +97,10 @@ export const teams = pgTable('teams', {
     game: text('game').notNull(),
     logo: text('logo'),
     description: text('description'),
-});
+}, (t) => ({
+    managerIdIdx: index('teams_manager_id_idx').on(t.managerId),
+    gameIdx: index('teams_game_idx').on(t.game),
+}));
 
 export const players = pgTable('players', {
     id: serial('id').primaryKey(),
@@ -102,28 +115,37 @@ export const players = pgTable('players', {
     level: integer('level').default(1),
     xp: integer('xp').default(0),
     isActive: boolean('is_active').default(true),
-});
+}, (t) => ({
+    teamIdIdx: index('players_team_id_idx').on(t.teamId),
+    userIdIdx: index('players_user_id_idx').on(t.userId),
+}));
 
 export const eventNotifications = pgTable('event_notifications', {
     id: serial('id').primaryKey(),
     eventId: integer('event_id').references(() => events.id),
     type: text('type').notNull(),
     sentAt: timestamp('sent_at').defaultNow(),
-});
+}, (t) => ({
+    eventIdIdx: index('event_notifications_event_id_idx').on(t.eventId),
+}));
 
 export const scrimNotifications = pgTable('scrim_notifications', {
     id: serial('id').primaryKey(),
     scrimId: integer('scrim_id').references(() => scrims.id),
     type: text('type').notNull(),
     sentAt: timestamp('sent_at').defaultNow(),
-});
+}, (t) => ({
+    scrimIdIdx: index('scrim_notifications_scrim_id_idx').on(t.scrimId),
+}));
 
 export const tournamentNotifications = pgTable('tournament_notifications', {
     id: serial('id').primaryKey(),
     tournamentId: integer('tournament_id').references(() => tournaments.id),
     type: text('type').notNull(),
     sentAt: timestamp('sent_at').defaultNow(),
-});
+}, (t) => ({
+    tournamentIdIdx: index('tournament_notifications_tournament_id_idx').on(t.tournamentId),
+}));
 
 export const tournaments = pgTable('tournaments', {
     id: serial('id').primaryKey(),
@@ -135,7 +157,10 @@ export const tournaments = pgTable('tournaments', {
     status: text('status').default('pending'),
     results: text('results'),
     maps: text('maps'),
-});
+}, (t) => ({
+    teamIdIdx: index('tournaments_team_id_idx').on(t.teamId),
+    statusIdx: index('tournaments_status_idx').on(t.status),
+}));
 
 export const tournamentPlayerStats = pgTable('tournament_player_stats', {
     id: serial('id').primaryKey(),
@@ -149,7 +174,10 @@ export const tournamentPlayerStats = pgTable('tournament_player_stats', {
     agent: text('agent'),
     role: text('role'),
     map: text('map'),
-});
+}, (t) => ({
+    tournamentIdIdx: index('tournament_player_stats_tournament_id_idx').on(t.tournamentId),
+    playerIdIdx: index('tournament_player_stats_player_id_idx').on(t.playerId),
+}));
 
 export const weeklyReports = pgTable('weekly_reports', {
     id: serial('id').primaryKey(),
@@ -158,7 +186,9 @@ export const weeklyReports = pgTable('weekly_reports', {
     generatedAt: text('generated_at').notNull(),
     reportData: text('report_data').notNull(),
     pdfPath: text('pdf_path'),
-});
+}, (t) => ({
+    weekStartIdx: index('weekly_reports_week_start_idx').on(t.weekStart),
+}));
 
 export const rosterQuotas = pgTable('roster_quotas', {
     id: serial('id').primaryKey(),
@@ -188,19 +218,25 @@ export const playerQuotaProgress = pgTable('player_quota_progress', {
     carryOverRG: integer('carry_over_rg').default(0),
     isCustomQuotaApplied: boolean('is_custom_quota_applied').default(false),
     updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (t) => ({
+    playerIdIdx: index('player_quota_progress_player_id_idx').on(t.playerId),
+    weekStartIdx: index('player_quota_progress_week_start_idx').on(t.weekStart),
+    playerWeekIdx: index('player_quota_progress_player_week_idx').on(t.playerId, t.weekStart),
+}));
 
 export const products = pgTable('products', {
     id: serial('id').primaryKey(),
     name: text('name').notNull(),
     description: text('description').notNull(),
-    price: integer('price').notNull(), // price in whole numbers e.g., cents or full currency value depending on use case. Let's use whole numbers representing standard currency for simplicity.
+    price: integer('price').notNull(),
     stock: integer('stock').notNull().default(0),
-    sponsorId: integer('sponsor_id').references(() => sponsors.id), // Can be null if it's Waks Corporation merch
+    sponsorId: integer('sponsor_id').references(() => sponsors.id),
     imageUrl: text('image_url').notNull(),
     status: text('status').default('active'),
     createdAt: timestamp('created_at').defaultNow(),
-});
+}, (t) => ({
+    statusIdx: index('products_status_idx').on(t.status),
+}));
 
 export const orders = pgTable('orders', {
     id: serial('id').primaryKey(),
@@ -210,11 +246,15 @@ export const orders = pgTable('orders', {
     recipientName: text('recipient_name').notNull(),
     deliveryAddress: text('delivery_address').notNull(),
     contactNumber: text('contact_number').notNull(),
-    paymentMethod: text('payment_method').notNull(), // 'E-Wallet', 'Bank Transfer'
-    paymentProofUrl: text('payment_proof_url'), // Customer uploads proof
-    status: text('status').default('For Payment Verification'), // 'For Payment Verification', 'Pending', 'For Shipping', 'Completed'
+    paymentMethod: text('payment_method').notNull(),
+    paymentProofUrl: text('payment_proof_url'),
+    status: text('status').default('For Payment Verification'),
     createdAt: timestamp('created_at').defaultNow(),
-});
+}, (t) => ({
+    userIdIdx: index('orders_user_id_idx').on(t.userId),
+    productIdIdx: index('orders_product_id_idx').on(t.productId),
+    statusIdx: index('orders_status_idx').on(t.status),
+}));
 
 export const playbookStrategies = pgTable('playbook_strategies', {
     id: serial('id').primaryKey(),
@@ -223,15 +263,32 @@ export const playbookStrategies = pgTable('playbook_strategies', {
     game: text('game'),
     map: text('map'),
     category: text('category'),
-    side: text('side'), // 'attack', 'defense', 'both'
-    priority: text('priority').default('medium'), // 'high', 'medium', 'low'
+    side: text('side'),
+    priority: text('priority').default('medium'),
     role: text('role'),
-    content: text('content'), // Rich text HTML
+    content: text('content'),
     notes: text('notes'),
-    images: text('images'), // JSON array of base64 strings or URLs
-    references: text('references'), // JSON array of { title: string, url: string }
+    images: text('images'),
+    references: text('references'),
     videoUrl: text('video_url'),
     authorId: integer('author_id').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (t) => ({
+    teamIdIdx: index('playbook_strategies_team_id_idx').on(t.teamId),
+    gameIdx: index('playbook_strategies_game_idx').on(t.game),
+}));
+
+export const notifications = pgTable('notifications', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id).notNull(),
+    title: text('title').notNull(),
+    message: text('message').notNull(),
+    type: text('type').notNull(),
+    isRead: boolean('is_read').default(false),
+    createdAt: timestamp('created_at').defaultNow(),
+}, (t) => ({
+    userIdIdx: index('notifications_user_id_idx').on(t.userId),
+    isReadIdx: index('notifications_is_read_idx').on(t.isRead),
+    userReadIdx: index('notifications_user_read_idx').on(t.userId, t.isRead),
+}));

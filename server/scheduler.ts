@@ -12,6 +12,17 @@ export const checkAllNotifications = async () => {
     try {
         const now = new Date().getTime();
 
+        // --- Pre-fetch ALL existing notification records to avoid N+1 queries ---
+        const [allEventNotifs, allScrimNotifs, allTourneyNotifs] = await Promise.all([
+            db.select().from(eventNotifications),
+            db.select().from(scrimNotifications),
+            db.select().from(tournamentNotifications),
+        ]);
+        // Build lookup sets: "eventId:type" → true  (O(1) existence check)
+        const eventNotifSet = new Set(allEventNotifs.map(n => `${n.eventId}:${n.type}`));
+        const scrimNotifSet = new Set(allScrimNotifs.map(n => `${n.scrimId}:${n.type}`));
+        const tourneyNotifSet = new Set(allTourneyNotifs.map(n => `${n.tournamentId}:${n.type}`));
+
         // --- 1. Event Notifications ---
         const allEvents = await db.select().from(events).where(inArray(events.status, ['upcoming', 'on-going']));
         for (const event of allEvents) {
@@ -29,50 +40,46 @@ export const checkAllNotifications = async () => {
                 const FOUR_HOURS_50M = 4 * 60 * 60 * 1000 + 50 * 60 * 1000;
                 const FIVE_HOURS_10M = 5 * 60 * 60 * 1000 + 10 * 60 * 1000;
 
-                // 1h Window (Dynamic Minutes)
+                // 1h Window
                 if (timeDiff <= ONE_HOUR) {
-                    const existing = await db.select().from(eventNotifications)
-                        .where(and(eq(eventNotifications.eventId, event.id), eq(eventNotifications.type, '1h')));
-                    if (existing.length === 0) {
+                    if (!eventNotifSet.has(`${event.id}:1h`)) {
                         const minutes = Math.ceil(timeDiff / 60000);
                         await sendAIEventNotification(event, `${minutes} Minutes`);
                         await db.insert(eventNotifications).values({ eventId: event.id, type: '1h', sentAt: new Date() });
+                        eventNotifSet.add(`${event.id}:1h`);
                     }
                 }
                 // 5h Window
                 else if (timeDiff <= FIVE_HOURS_10M && timeDiff > FOUR_HOURS_50M) {
-                    const existing = await db.select().from(eventNotifications)
-                        .where(and(eq(eventNotifications.eventId, event.id), eq(eventNotifications.type, '5h')));
-                    if (existing.length === 0) {
+                    if (!eventNotifSet.has(`${event.id}:5h`)) {
                         await sendAIEventNotification(event, '5 Hours');
                         await db.insert(eventNotifications).values({ eventId: event.id, type: '5h', sentAt: new Date() });
+                        eventNotifSet.add(`${event.id}:5h`);
                     }
                 }
                 // 1d Window
                 else if (timeDiff <= ONE_DAY && timeDiff > TWENTY_THREE_HOURS) {
-                    const existing = await db.select().from(eventNotifications)
-                        .where(and(eq(eventNotifications.eventId, event.id), eq(eventNotifications.type, '1d')));
-                    if (existing.length === 0) {
+                    if (!eventNotifSet.has(`${event.id}:1d`)) {
                         await sendAIEventNotification(event, '1 Day');
                         await db.insert(eventNotifications).values({ eventId: event.id, type: '1d', sentAt: new Date() });
+                        eventNotifSet.add(`${event.id}:1d`);
                     }
                 }
                 // 3d Window
                 else if (timeDiff <= THREE_DAYS && timeDiff > SEVENTY_ONE_HOURS) {
-                    const existing = await db.select().from(eventNotifications)
-                        .where(and(eq(eventNotifications.eventId, event.id), eq(eventNotifications.type, '3d')));
-                    if (existing.length === 0) {
+                    if (!eventNotifSet.has(`${event.id}:3d`)) {
                         await sendAIEventNotification(event, '3 Days');
                         await db.insert(eventNotifications).values({ eventId: event.id, type: '3d', sentAt: new Date() });
+                        eventNotifSet.add(`${event.id}:3d`);
                     }
                 }
-                // Created Mid-range (Catch-all if missed others)
+                // Created Mid-range catch-all
                 else if (timeDiff <= TWENTY_THREE_HOURS && timeDiff > FIVE_HOURS_10M) {
-                    const allNotifs = await db.select().from(eventNotifications).where(eq(eventNotifications.eventId, event.id));
-                    if (allNotifs.length === 0) {
+                    if (!eventNotifSet.has(`${event.id}:created_mid`) && !eventNotifSet.has(`${event.id}:1h`) && !eventNotifSet.has(`${event.id}:5h`)) {
                         const hours = Math.ceil(timeDiff / ONE_HOUR);
                         await sendAIEventNotification(event, `${hours} Hours`);
                         await db.insert(eventNotifications).values({ eventId: event.id, type: 'created_mid', sentAt: new Date() });
+                        eventNotifSet.add(`${event.id}:created_mid`);
                     }
                 }
             }
@@ -93,24 +100,18 @@ export const checkAllNotifications = async () => {
             const TEN_MINUTES = 10 * 60 * 1000;
             const THIRTY_MINUTES = 30 * 60 * 1000;
             const ELEVEN_MINUTES = 11 * 60 * 1000;
-            const THIRTY_ONE_MINUTES = 31 * 60 * 1000;
 
-            // 10m Reminder
             if (timeDiff <= TEN_MINUTES && timeDiff > 0) {
-                const existing = await db.select().from(scrimNotifications)
-                    .where(and(eq(scrimNotifications.scrimId, scrim.id), eq(scrimNotifications.type, '10m')));
-                if (existing.length === 0) {
+                if (!scrimNotifSet.has(`${scrim.id}:10m`)) {
                     await sendScrimReminder(scrim, '10 Minutes');
                     await db.insert(scrimNotifications).values({ scrimId: scrim.id, type: '10m', sentAt: new Date() });
+                    scrimNotifSet.add(`${scrim.id}:10m`);
                 }
-            }
-            // 30m Reminder
-            else if (timeDiff <= THIRTY_MINUTES && timeDiff > ELEVEN_MINUTES) {
-                const existing = await db.select().from(scrimNotifications)
-                    .where(and(eq(scrimNotifications.scrimId, scrim.id), eq(scrimNotifications.type, '30m')));
-                if (existing.length === 0) {
+            } else if (timeDiff <= THIRTY_MINUTES && timeDiff > ELEVEN_MINUTES) {
+                if (!scrimNotifSet.has(`${scrim.id}:30m`)) {
                     await sendScrimReminder(scrim, '30 Minutes');
                     await db.insert(scrimNotifications).values({ scrimId: scrim.id, type: '30m', sentAt: new Date() });
+                    scrimNotifSet.add(`${scrim.id}:30m`);
                 }
             }
         }
@@ -125,34 +126,25 @@ export const checkAllNotifications = async () => {
             const THIRTY_MINUTES = 30 * 60 * 1000;
             const ONE_DAY = 24 * 60 * 60 * 1000;
             const ELEVEN_MINUTES = 11 * 60 * 1000;
-            const THIRTY_ONE_MINUTES = 31 * 60 * 1000;
             const TWENTY_THREE_HOURS = 23 * 60 * 60 * 1000;
 
-            // 10m Reminder
             if (timeDiff <= TEN_MINUTES && timeDiff > 0) {
-                const existing = await db.select().from(tournamentNotifications)
-                    .where(and(eq(tournamentNotifications.tournamentId, tourney.id), eq(tournamentNotifications.type, '10m')));
-                if (existing.length === 0) {
+                if (!tourneyNotifSet.has(`${tourney.id}:10m`)) {
                     await sendTournamentReminder(tourney, '10 Minutes');
                     await db.insert(tournamentNotifications).values({ tournamentId: tourney.id, type: '10m', sentAt: new Date() });
+                    tourneyNotifSet.add(`${tourney.id}:10m`);
                 }
-            }
-            // 30m Reminder
-            else if (timeDiff <= THIRTY_MINUTES && timeDiff > ELEVEN_MINUTES) {
-                const existing = await db.select().from(tournamentNotifications)
-                    .where(and(eq(tournamentNotifications.tournamentId, tourney.id), eq(tournamentNotifications.type, '30m')));
-                if (existing.length === 0) {
+            } else if (timeDiff <= THIRTY_MINUTES && timeDiff > ELEVEN_MINUTES) {
+                if (!tourneyNotifSet.has(`${tourney.id}:30m`)) {
                     await sendTournamentReminder(tourney, '30 Minutes');
                     await db.insert(tournamentNotifications).values({ tournamentId: tourney.id, type: '30m', sentAt: new Date() });
+                    tourneyNotifSet.add(`${tourney.id}:30m`);
                 }
-            }
-            // 1d Reminder
-            else if (timeDiff <= ONE_DAY && timeDiff > TWENTY_THREE_HOURS) {
-                const existing = await db.select().from(tournamentNotifications)
-                    .where(and(eq(tournamentNotifications.tournamentId, tourney.id), eq(tournamentNotifications.type, '1d')));
-                if (existing.length === 0) {
+            } else if (timeDiff <= ONE_DAY && timeDiff > TWENTY_THREE_HOURS) {
+                if (!tourneyNotifSet.has(`${tourney.id}:1d`)) {
                     await sendTournamentReminder(tourney, '1 Day');
                     await db.insert(tournamentNotifications).values({ tournamentId: tourney.id, type: '1d', sentAt: new Date() });
+                    tourneyNotifSet.add(`${tourney.id}:1d`);
                 }
             }
         }
@@ -161,6 +153,7 @@ export const checkAllNotifications = async () => {
         console.error('[SCHEDULER] Error in check loop:', error);
     }
 };
+
 
 export const initScheduler = (onWeeklyReportTrigger?: () => Promise<any>) => {
     // Run notification check every minute
@@ -197,7 +190,7 @@ async function sendScrimReminder(scrim: any, timeText: string) {
             `**Protocol:** ${scrim.format}\n\n` +
             `*All personnel report to stations immediately. Prepare for theater engagement.*`;
 
-        fs.appendFileSync('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_SCRIM_CHANNEL_ID} (REMINDER)\n${discordMsg}\n${'='.repeat(50)}\n`);
+        fs.appendFile('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_SCRIM_CHANNEL_ID} (REMINDER)\n${discordMsg}\n${'='.repeat(50)}\n`, err => { if (err) console.error('[AUDIT LOG] Write failed:', err); });
         await sendToDiscord(discordMsg, null, process.env.DISCORD_SCRIM_CHANNEL_ID);
     } catch (err) {
         console.error('[SCHEDULER ERROR] Failed to send scrim reminder:', err);
@@ -217,7 +210,7 @@ async function sendTournamentReminder(tourney: any, timeText: string) {
             `**Protocol:** ${tourney.format}\n\n` +
             `*All operatives report for final briefing. Glory to the Corporation.*`;
 
-        fs.appendFileSync('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_TOURNAMENT_CHANNEL_ID} (REMINDER)\n${discordMsg}\n${'='.repeat(50)}\n`);
+        fs.appendFile('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_TOURNAMENT_CHANNEL_ID} (REMINDER)\n${discordMsg}\n${'='.repeat(50)}\n`, err => { if (err) console.error('[AUDIT LOG] Write failed:', err); });
         await sendToDiscord(discordMsg, null, process.env.DISCORD_TOURNAMENT_CHANNEL_ID);
     } catch (err) {
         console.error('[SCHEDULER ERROR] Failed to send tournament reminder:', err);
@@ -225,43 +218,46 @@ async function sendTournamentReminder(tourney: any, timeText: string) {
 }
 
 export async function sendAIEventNotification(event: any, timeLabel: string) {
-    try {
-        if (!process.env.GEMINI_API_KEY) {
-            console.warn('[SCHEDULER] Missing GEMINI_API_KEY. Skipping AI generation.');
-            throw new Error('Missing API Key');
-        }
+    // If no API key, skip AI generation and send the fallback directly (no throw needed)
+    if (!process.env.GEMINI_API_KEY) {
+        console.warn('[SCHEDULER] Missing GEMINI_API_KEY — sending plain fallback notification.');
+        const fallbackMsg = `🚨 **UPCOMING EVENT** 🚨\n**${event.title}** is starting in ${timeLabel}!\n${event.description || ''}\n@everyone`;
+        fs.appendFile('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_EVENT_CHANNEL_ID} (FALLBACK-NO-KEY)\n${fallbackMsg}\n${'='.repeat(50)}\n`, err => { if (err) console.error('[AUDIT LOG] Write failed:', err); });
+        await sendToDiscord(fallbackMsg, event.image, process.env.DISCORD_EVENT_CHANNEL_ID);
+        return;
+    }
 
+    let timeText = timeLabel;
+    if (timeLabel === '3d') timeText = '3 Days';
+    if (timeLabel === '1d') timeText = '1 Day';
+    if (timeLabel === '1h') timeText = '1 Hour';
+    // "5 Hours" or "30 Minutes" comes through as-is
+
+    const prompt = `
+        You are the hype announcer for WC Esports (Waks Corporation).
+        Write a short, high-energy Discord notification for an upcoming event.
+        
+        Event Details:
+        - Title: ${event.title}
+        - Description: ${event.description || 'N/A'}
+        - Location: ${event.location || 'N/A'}
+        - Time Remaining: ${timeText} EXACTLY.
+        
+        Instructions:
+        - Format the message as a structured Discord announcement using Markdown.
+        - **Headline**: Use a bold, emoji-prefixed headline (e.g., 🎮 **TITLE**).
+        - **Description**: A clear, engaging paragraph.
+        - **Details/Requirements**: Use bullet points (• or -) if the event description implies a list (e.g., rules, requirements, lineup).
+        - **Key Info**: distinct sections for Location/Time if relevant.
+        - **Action**: A clear "Interested?" or "Join now" call to action.
+        - **Footer**: Ends with relevant hashtags and @everyone.
+        - Do NOT limit length to 2 sentences. Make it look professional and complete (like a recruitment or tournament post).
+        - Output ONLY the message content.
+    `;
+
+    try {
         const { GoogleGenAI } = await import('@google/genai');
         const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-        let timeText = timeLabel;
-        if (timeLabel === '3d') timeText = '3 Days';
-        if (timeLabel === '1d') timeText = '1 Day';
-        if (timeLabel === '1h') timeText = '1 Hour';
-        // "5 Hours" or "30 Minutes" comes through as-is
-        const isImminent = timeLabel === '1h' || timeLabel === 'TEST';
-
-        const prompt = `
-            You are the hype announcer for WC Esports (Waks Corporation).
-            Write a short, high-energy Discord notification for an upcoming event.
-            
-            Event Details:
-            - Title: ${event.title}
-            - Description: ${event.description || 'N/A'}
-            - Location: ${event.location || 'N/A'}
-            - Time Remaining: ${timeText} EXACTLY.
-            
-            Instructions:
-            - Format the message as a structured Discord announcement using Markdown.
-            - **Headline**: Use a bold, emoji-prefixed headline (e.g., 🎮 **TITLE**).
-            - **Description**: A clear, engaging paragraph.
-            - **Details/Requirements**: Use bullet points (• or -) if the event description implies a list (e.g., rules, requirements, lineup).
-            - **Key Info**: distinct sections for Location/Time if relevant.
-            - **Action**: A clear "Interested?" or "Join now" call to action.
-            - **Footer**: Ends with relevant hashtags and @everyone.
-            - Do NOT limit length to 2 sentences. Make it look professional and complete (like a recruitment or tournament post).
-            - Output ONLY the message content.
-        `;
 
         console.log('[SCHEDULER] Generating content with Gemini... (Lazy Loading)');
         const response = await genAI.models.generateContent({
@@ -273,16 +269,17 @@ export async function sendAIEventNotification(event: any, timeLabel: string) {
         console.log(`[SCHEDULER] Generated message (${message?.length} chars):\n${message}`);
 
         if (message) {
-            fs.appendFileSync('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_EVENT_CHANNEL_ID}\n${message}\n${'='.repeat(50)}\n`);
+            fs.appendFile('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_EVENT_CHANNEL_ID}\n${message}\n${'='.repeat(50)}\n`, err => { if (err) console.error('[AUDIT LOG] Write failed:', err); });
             await sendToDiscord(message, event.image, process.env.DISCORD_EVENT_CHANNEL_ID);
         } else {
-            console.error('[SCHEDULER] Error: Generated message is empty.');
+            console.error('[SCHEDULER] Error: Generated message is empty. Sending fallback.');
+            throw new Error('Empty AI response');
         }
     } catch (error: any) {
-        console.error(`[SCHEDULER ERROR] Error generating/sending AI notification: ${error.message}`);
-        // Fallback message
+        console.error(`[SCHEDULER ERROR] AI generation failed: ${error.message}. Sending plain fallback.`);
         const fallbackMsg = `🚨 **UPCOMING EVENT** 🚨\n**${event.title}** is starting in ${timeLabel}!\n${event.description || ''}\n@everyone`;
-        fs.appendFileSync('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_EVENT_CHANNEL_ID} (FALLBACK)\n${fallbackMsg}\n${'='.repeat(50)}\n`);
+        fs.appendFile('discord_audit.log', `[${new Date().toISOString()}] TO: ${process.env.DISCORD_EVENT_CHANNEL_ID} (FALLBACK)\n${fallbackMsg}\n${'='.repeat(50)}\n`, err => { if (err) console.error('[AUDIT LOG] Write failed:', err); });
         await sendToDiscord(fallbackMsg, event.image, process.env.DISCORD_EVENT_CHANNEL_ID);
     }
 }
+

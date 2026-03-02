@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useUser, logout } from '../services/authService';
 import { useTheme } from '../hooks/useTheme';
+import NotificationBell from './NotificationBell';
 
 interface HeaderProps {
   onLoginClick: () => void;
@@ -175,6 +176,8 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
             )}
           </button>
 
+          <NotificationBell />
+
           {!loading && user ? (
             <div className="relative">
               <button
@@ -342,7 +345,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
           </div>
         )}
       </div>
-    </nav>
+    </nav >
   );
 };
 

@@ -43,3 +43,24 @@ export const getRankBadge = (level: number | undefined | null, roleStr?: string)
 
     return `LVL ${level}`;
 };
+export const parseMatchResult = (score: any, isVictory?: boolean): number => {
+    // 1=Win, 0=Loss, 2=Draw
+    const isWinStr = typeof score === 'string' && score.toUpperCase() === 'WIN';
+    if (isVictory === true || isWinStr) return 1;
+
+    const isLossStr = typeof score === 'string' && score.toUpperCase() === 'LOSS';
+    if (isVictory === false || isLossStr) return 0;
+
+    if (typeof score === 'string' && score.includes('-')) {
+        const [s1, s2] = score.split('-').map(str => parseInt(str.trim()));
+        if (!isNaN(s1) && !isNaN(s2)) {
+            if (s1 > s2) return 1;
+            if (s1 < s2) return 0;
+            return 2; // DRAW
+        }
+    }
+
+    if (isVictory === true) return 1;
+    if (isVictory === false) return 0;
+    return 2;
+};
