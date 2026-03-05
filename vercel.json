@@ -25,11 +25,5 @@
     ],
     "env": {
         "NODE_ENV": "production"
-    },
-    "crons": [
-        {
-            "path": "/api/cron/check-notifications",
-            "schedule": "0 0 * * *"
-        }
-    ]
+    }
 }

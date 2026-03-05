@@ -4978,27 +4978,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 
-// --- CRON / PERIODIC TASKS ---
-app.get('/api/cron/check-notifications', async (req, res) => {
-    console.log('[CRON] Manual notification check triggered via protocol.');
-    try {
-        // In serverless, we must ensure services are loaded on demand
-        const discord = await import('./discord.js');
-        const scheduler = await import('./scheduler.js');
-
-        console.log('[CRON] Initializing Discord bot...');
-        discord.initDiscord();
-
-        console.log('[CRON] Executing global notification check...');
-        await scheduler.checkAllNotifications();
-
-        res.json({ success: true, message: 'Notification audit completed successfully.' });
-    } catch (error: any) {
-        console.error('[CRON ERROR] Audit failed:', error);
-        res.status(500).json({ success: false, error: 'Audit protocol failure', details: error.message });
-    }
-});
-
 // Final Export for Vercel
 export default app;
 
@@ -5006,31 +4985,9 @@ export default app;
 if (process.env.NODE_ENV !== 'production' || process.env.VITE_DEV_SERVER) {
     app.listen(PORT, '0.0.0.0', async () => {
         console.log(`Server running on http://0.0.0.0:${PORT}`);
-
-        try {
-            console.log('[DEBUG] Initializing base services (Local/Dev Mode)...');
-            const discord = await import('./discord.js');
-            const scheduler = await import('./scheduler.js');
-
-            initDiscord = discord.initDiscord;
-            initScheduler = scheduler.initScheduler;
-            checkAllNotifications = scheduler.checkAllNotifications;
-
-            initDiscord();
-            initScheduler(generateAndSendWeeklyReport);
-        } catch (err) {
-            console.error('[STARTUP ERROR] Service injection failed:', err);
-        }
     });
 } else {
-    // In Vercel serverless, we still want to be able to initialize Discord when needed.
-    // We don't run initScheduler('* * * * *') because cron won't persist,
-    // but the /api/cron endpoint will handle the manual triggers.
-    console.log('[DEBUG] Running in Vercel Serverless environment. Use /api/cron endpoints for periodic tasks.');
-
-    // We don't call initDiscord() here to avoid slowing down EVERY cold start,
-    // instead sendToDiscord() will call it on-demand via ensureDiscordReady().
-    // However, if we are in a cron request, the route above handles it.
+    console.log('[DEBUG] Running in Vercel Serverless environment.');
 }
 
 
