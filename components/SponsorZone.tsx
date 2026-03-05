@@ -719,7 +719,7 @@ const SponsorZone: React.FC = () => {
                                             </tr>
                                         ) : (
                                             activeOrders.map(order => (
-                                                <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <tr key={order.id} className="hover:bg-amber-500/5 transition-colors">
                                                     <td className="px-4 py-4 font-mono text-xs text-slate-400">#{order.id.toString().padStart(4, '0')}</td>
                                                     <td className="px-4 py-4">
                                                         <div className="font-bold text-white text-xs">{order.recipientName}</div>
@@ -784,7 +784,7 @@ const SponsorZone: React.FC = () => {
                                         </thead>
                                         <tbody className="divide-y divide-white/5 text-xs">
                                             {archiveOrders.map(order => (
-                                                <tr key={order.id} className="hover:bg-white/[0.01]">
+                                                <tr key={order.id} className="hover:bg-amber-500/5">
                                                     <td className="px-4 py-4 font-mono text-slate-500">#{order.id}</td>
                                                     <td className="px-4 py-4">
                                                         <div className="text-slate-300 font-bold">{order.recipientName}</div>

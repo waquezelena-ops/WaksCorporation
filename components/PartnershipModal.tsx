@@ -43,7 +43,7 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ isOpen, onClose }) 
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} zIndex={150} backdropClassName="bg-white/80 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" className="w-full max-w-lg">
+        <Modal isOpen={isOpen} onClose={onClose} zIndex={150} backdropClassName="bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" className="w-full max-w-lg">
             <div className="relative w-full max-w-lg bg-[#020617] border border-amber-500/20 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                 {/* Background Decorations */}
                 <div className="absolute top-[-50%] left-[-50%] w-full h-full bg-amber-500/10 blur-[100px] rounded-full pointer-events-none" />

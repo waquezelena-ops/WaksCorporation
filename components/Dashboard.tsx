@@ -5,10 +5,11 @@ import { getTeamAnalysis } from '../services/geminiService';
 import { useUser } from '../services/authService';
 import { useNotification } from '../hooks/useNotification';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
+import { animate, stagger } from 'animejs';
 
 const EMPTY_STATS = (label1: string, label2: string, label3: string, label4: string) => [
   { label: label1, value: '—', color: 'bg-amber-500' },
-  { label: label2, value: '—', color: 'bg-white' },
+  { label: label2, value: '—', color: 'bg-slate-200' },
   { label: label3, value: '—', color: 'bg-purple-600' },
   { label: label4, value: '—', color: 'bg-slate-500' },
 ];
@@ -139,6 +140,35 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
 
     initDashboard();
 
+    // Staggered Entry Animation
+    requestAnimationFrame(() => {
+      // Heading
+      animate('.dash-heading', {
+        opacity: [0, 1],
+        translateX: [-20, 0],
+        duration: 800,
+        easing: 'easeOutQuart'
+      });
+
+      // Stat Cards
+      animate('.stat-card', {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        delay: stagger(100, { start: 200 }),
+        duration: 800,
+        easing: 'easeOutQuart'
+      });
+
+      // Chart Container
+      animate('.chart-container', {
+        opacity: [0, 1],
+        scale: [0.98, 1],
+        delay: 500,
+        duration: 1000,
+        easing: 'easeOutQuart'
+      });
+    });
+
     const handleRefresh = () => {
       console.log("[DASHBOARD] Real-time sync triggered");
       loadScrimStats(selectedTeamId ?? undefined);
@@ -232,13 +262,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
 
 
   return (
-    <div className="w-full bg-[#020617]/40 backdrop-blur-3xl rounded-[48px] border border-amber-500/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-700">
+    <div className="w-full glass rounded-[48px] overflow-hidden transition-all duration-700">
       {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row items-center justify-between p-6 md:p-8 bg-white/5 border-b border-white/5 gap-6 md:gap-0">
         <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
           <div className="flex flex-col leading-none text-center md:text-left">
-            <span className="font-black text-lg md:text-xl tracking-tighter text-white">Citadel Deck</span>
-            <span className="text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] mt-1 opacity-60">Control Terminal</span>
+            <span className="font-black text-lg md:text-xl tracking-tighter text-[var(--text-color)] dark:text-white">Citadel Deck</span>
+            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-black uppercase tracking-[0.2em] mt-1 opacity-80 dark:opacity-60">Control Terminal</span>
           </div>
           <div className="flex bg-black/40 rounded-2xl p-1.5 border border-white/5 w-full md:w-auto overflow-x-auto justify-center">
             <button
@@ -291,7 +321,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
       {/* Tab label indicator */}
       <div className="px-6 md:px-10 pt-6 flex items-center gap-3">
         <div className={`w-2 h-2 rounded-full animate-pulse ${activeTab === 'command' ? 'bg-amber-500 shadow-[0_0_8px_#fbbf24]' : 'bg-purple-500 shadow-[0_0_8px_#a855f7]'}`} />
-        <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-slate-500">
+        <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-slate-600 dark:text-slate-500">
           {activeTab === 'command' ? 'Scrim Intelligence — Command View' : 'Tournament Intelligence — Tactical View'}
         </span>
       </div>
@@ -303,10 +333,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
             <div className="space-y-2">
               <div className="flex items-center justify-center md:justify-start space-x-3">
                 <span className="w-2 h-2 bg-amber-500 rounded-full shadow-[0_0_10px_#fbbf24] animate-pulse" />
-                <p className="text-[10px] text-amber-500 font-black uppercase tracking-[0.4em]">Signal Established // Secure</p>
+                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-black uppercase tracking-[0.4em]">Signal Established // Secure</p>
               </div>
-              <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 drop-shadow-[0_0_20px_rgba(251,191,36,0.1)]">{user?.displayName || 'Commander'}</span>
+              <h2 className="text-3xl md:text-5xl font-black text-[var(--text-color)] dark:text-white tracking-tight dash-heading" style={{ opacity: 0 }}>
+                Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-600 to-amber-700 dark:from-amber-200 dark:via-amber-400 dark:to-amber-600 drop-shadow-[0_0_20px_rgba(251,191,36,0.1)]">{user?.displayName || 'Commander'}</span>
               </h2>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
                 <span className="px-4 py-1.5 rounded-full bg-purple-600/20 border border-purple-500/30 text-[8px] md:text-[10px] font-black text-purple-400 uppercase tracking-[0.3em]">
@@ -351,10 +381,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-4 md:gap-6">
               {activeStats.map((stat, idx) => (
-                <div key={idx} className="bg-white/5 backdrop-blur-3xl rounded-[24px] md:rounded-3xl p-5 md:p-6 min-w-0 md:min-w-[180px] border border-white/10 shadow-xl hover:border-amber-500/40 transition-all group cursor-default">
-                  <p className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-4 group-hover:text-amber-500 transition-colors">{stat.label}</p>
+                <div key={idx} className="glass rounded-[24px] md:rounded-3xl p-5 md:p-6 min-w-0 md:min-w-[180px] hover:border-amber-500/40 transition-all group cursor-default stat-card" style={{ opacity: 0 }}>
+                  <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-4 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{stat.label}</p>
                   <div className="flex items-end justify-between">
-                    <span className={`text-2xl md:text-3xl font-black text-white tracking-tighter ${isLoading ? 'animate-pulse opacity-50' : ''}`}>{stat.value}</span>
+                    <span className={`text-2xl md:text-3xl font-black text-[var(--text-color)] dark:text-white tracking-tighter ${isLoading ? 'animate-pulse opacity-50' : ''}`}>{stat.value}</span>
                     <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${stat.color} shadow-[0_0_15px_rgba(251,191,36,0.4)] group-hover:scale-125 transition-transform`} />
                   </div>
                 </div>
@@ -365,33 +395,33 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
           <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 bg-black/30 p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-white/5">
             <div className="text-center min-w-[80px]">
               <div className="flex items-baseline justify-center space-x-1 group">
-                <span className="text-3xl md:text-5xl font-black text-white group-hover:text-amber-400 transition-colors tracking-tighter">{Number(activeStats[1]?.value) || '—'}</span>
-                <span className="text-emerald-400 text-[8px] md:text-[10px] font-black group-hover:translate-y-[-2px] transition-transform">▲</span>
+                <span className="text-3xl md:text-5xl font-black text-[var(--text-color)] dark:text-white group-hover:text-amber-500 transition-colors tracking-tighter">{Number(activeStats[1]?.value) || '—'}</span>
+                <span className="text-emerald-500 text-[8px] md:text-[10px] font-black group-hover:translate-y-[-2px] transition-transform">▲</span>
               </div>
-              <p className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">
+              <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">
                 {activeTab === 'command' ? 'Deployments' : 'Tournaments'}
               </p>
             </div>
             <div className="text-center min-w-[80px]">
               <div className="flex items-baseline justify-center space-x-1 group">
-                <span className="text-3xl md:text-5xl font-black text-white group-hover:text-purple-400 transition-colors tracking-tighter">{Number(activeStats[0]?.value) || '—'}</span>
+                <span className="text-3xl md:text-5xl font-black text-[var(--text-color)] dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors tracking-tighter">{Number(activeStats[0]?.value) || '—'}</span>
                 <span className="text-blue-400 text-[8px] md:text-[10px] font-black group-hover:translate-y-[-2px] transition-transform">▲</span>
               </div>
-              <p className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">Wins</p>
+              <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">Wins</p>
             </div>
             <div className="text-center min-w-[80px]">
               <div className="flex items-baseline justify-center space-x-1 group">
-                <span className="text-3xl md:text-5xl font-black text-white group-hover:text-amber-200 transition-colors tracking-tighter">{activeStats[2]?.value || '—'}</span>
+                <span className="text-3xl md:text-5xl font-black text-[var(--text-color)] dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-200 transition-colors tracking-tighter">{activeStats[2]?.value || '—'}</span>
                 <span className="text-amber-500 text-[8px] md:text-[10px] font-black group-hover:translate-y-[-2px] transition-transform animate-pulse">▲</span>
               </div>
-              <p className="text-[8px] md:text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">Win Rate</p>
+              <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">Win Rate</p>
             </div>
           </div>
         </div>
 
         {/* Charts & Cards Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 md:gap-10">
-          <div className="xl:col-span-2 bg-[#020617]/60 backdrop-blur-2xl rounded-[30px] md:rounded-[40px] p-6 md:p-10 border border-white/10 shadow-2xl relative overflow-hidden group">
+          <div className="xl:col-span-2 glass rounded-[30px] md:rounded-[40px] p-6 md:p-10 relative overflow-hidden group chart-container" style={{ opacity: 0 }}>
             <div className="absolute top-0 right-0 p-4 md:p-8">
               <div className="w-24 h-24 md:w-32 md:h-32 bg-amber-500/5 blur-[80px] rounded-full group-hover:bg-amber-500/10 transition-all duration-1000" />
             </div>
@@ -477,7 +507,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
               </button>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-3xl rounded-[30px] md:rounded-[40px] p-8 md:p-10 border border-white/10 flex-grow shadow-2xl relative overflow-hidden">
+            <div className="glass rounded-[30px] md:rounded-[40px] p-8 md:p-10 flex-grow relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-purple-900/10 to-transparent" />
               {aiAnalysis ? (
                 <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10">

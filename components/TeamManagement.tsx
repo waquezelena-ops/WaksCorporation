@@ -761,8 +761,8 @@ const TeamManagement: React.FC<{
             )}
 
             {view === 'list' && (
-                <div className="relative z-10 bg-white/[0.02] rounded-[24px] md:rounded-[30px] border border-white/5 shadow-inner overflow-hidden flex flex-col">
-                    <div className="px-6 py-6 md:px-8 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
+                <div className="relative z-10 glass rounded-[24px] md:rounded-[30px] shadow-inner overflow-hidden flex flex-col">
+                    <div className="px-6 py-6 md:px-8 border-b border-white/5 bg-black/10 flex justify-between items-center">
                         <div>
                             <h3 className="text-xl md:text-2xl font-black text-white uppercase italic tracking-tighter">Tactical Engagement Log</h3>
                             <p className="text-[8px] md:text-[10px] text-amber-500 font-black uppercase tracking-[0.3em] md:tracking-[0.4em] mt-1 italic">Sequential Operation History</p>
@@ -1134,7 +1134,7 @@ const TeamManagement: React.FC<{
             )}
 
             {view === 'add-scrim' && (
-                <form onSubmit={handleCreateScrim} className="max-w-2xl mx-auto space-y-6 md:space-y-8 relative z-10 p-6 md:p-12 bg-white/[0.02] rounded-[32px] md:rounded-[40px] border border-white/5 animate-in slide-in-from-bottom duration-500">
+                <form onSubmit={handleCreateScrim} className="max-w-2xl mx-auto space-y-6 md:space-y-8 relative z-10 p-6 md:p-12 glass rounded-[32px] md:rounded-[40px] animate-in slide-in-from-bottom duration-500">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                         <div>
                             <h2 className="text-xl md:text-3xl font-black text-white uppercase italic tracking-tighter">

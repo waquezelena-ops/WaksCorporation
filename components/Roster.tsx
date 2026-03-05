@@ -213,8 +213,7 @@ const Roster: React.FC<{ userRole?: string; userId?: number }> = ({ userRole, us
         </div>
 
         <div
-          className="flex flex-col sm:flex-row gap-4 md:gap-6 p-6 md:p-8 rounded-[30px] md:rounded-[40px] border shadow-soft backdrop-blur-xl mx-6 md:mx-0"
-          style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
+          className="flex flex-col sm:flex-row gap-4 md:gap-6 p-6 md:p-8 glass rounded-[30px] md:rounded-[40px] mx-6 md:mx-0"
         >
           <div className="relative group w-full sm:w-80">
             <input
@@ -241,7 +240,7 @@ const Roster: React.FC<{ userRole?: string; userId?: number }> = ({ userRole, us
       </div>
 
       {loading ? (
-        <div className="text-center text-slate-500 flex flex-col items-center space-y-8 py-48 backdrop-blur-3xl rounded-[60px] border border-slate-200 dark:border-white/5 shadow-soft" style={{ background: 'var(--glass-bg)' }}>
+        <div className="text-center text-slate-500 flex flex-col items-center space-y-8 py-48 glass rounded-[60px]">
           <div className="relative">
             <div className="w-20 h-20 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin" />
             <div className="absolute inset-0 w-20 h-20 border-4 border-purple-500/10 border-b-purple-500 rounded-full animate-spin-slow" />
@@ -262,11 +261,11 @@ const Roster: React.FC<{ userRole?: string; userId?: number }> = ({ userRole, us
           </button>
         </div>
       ) : filteredTeams.length === 0 ? (
-        <div className="relative group overflow-hidden rounded-[60px] border-2 border-dashed border-slate-300 dark:border-white/10 p-32 text-center bg-slate-50 dark:bg-black/40 backdrop-blur-3xl shadow-soft">
+        <div className="relative group overflow-hidden rounded-[60px] border-2 border-dashed border-white/10 p-32 text-center bg-black/40 backdrop-blur-3xl shadow-soft">
           <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
 
           <div className="relative z-10 space-y-8">
-            <div className="w-32 h-32 bg-slate-100 dark:bg-white/5 rounded-[40px] flex items-center justify-center mx-auto border border-slate-200 dark:border-white/10 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 shadow-2xl relative">
+            <div className="w-32 h-32 glass rounded-[40px] flex items-center justify-center mx-auto border border-slate-200 dark:border-white/10 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 shadow-horizontal relative">
               <div className="absolute inset-0 bg-amber-500/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               <svg className="w-16 h-16 text-slate-400 dark:text-slate-600 group-hover:text-amber-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -295,7 +294,7 @@ const Roster: React.FC<{ userRole?: string; userId?: number }> = ({ userRole, us
                 </div>
                 <div className="flex items-center space-x-4 md:space-x-6">
                   <span className="text-[8px] md:text-[9px] text-slate-500 dark:text-slate-600 font-black uppercase tracking-[0.2em] md:tracking-[0.3em]">Division Code: {team.id}</span>
-                  <span className="px-5 md:px-8 py-2 md:py-3 bg-white dark:bg-white/5 text-amber-600 dark:text-amber-500 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] border border-slate-200 dark:border-white/10 shadow-xl backdrop-blur-3xl">
+                  <span className="px-5 md:px-8 py-2 md:py-3 glass text-amber-600 dark:text-amber-500 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] border border-slate-200 dark:border-white/10 shadow-xl">
                     {team.game}
                   </span>
                 </div>

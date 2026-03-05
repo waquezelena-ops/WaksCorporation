@@ -417,8 +417,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             {/* 1. Add Role / User Management */}
             <div
                 id="personnel"
-                className="p-10 backdrop-blur-3xl rounded-[40px] border relative overflow-hidden group"
-                style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                className="p-10 glass rounded-[40px] relative overflow-hidden group"
             >
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 md:mb-12">
@@ -505,8 +504,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             {/* 1b. Squad Intelligence Registry */}
             <div
                 id="squads"
-                className="p-10 backdrop-blur-3xl rounded-[40px] border relative overflow-hidden group"
-                style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                className="p-10 glass rounded-[40px] relative overflow-hidden group"
             >
                 <div className="absolute top-0 right-0 w-1/3 h-1 bg-gradient-to-l from-transparent via-cyan-500/40 to-transparent" />
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 md:mb-12">
@@ -594,8 +592,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             {/* 1c. Manager Handles Overview */}
             <div
                 id="managers"
-                className="p-10 backdrop-blur-3xl rounded-[40px] border relative overflow-hidden group"
-                style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                className="p-10 glass rounded-[40px] relative overflow-hidden group"
             >
                 <div className="absolute top-0 right-0 p-8">
                     <div className="w-32 h-32 bg-purple-500/5 blur-[80px] rounded-full group-hover:bg-purple-500/10 transition-all duration-1000" />
@@ -760,8 +757,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
                 {/* Log Achievement */}
                 <div
                     id="achievements"
-                    className="p-6 md:p-10 backdrop-blur-3xl rounded-[30px] md:rounded-[40px] border relative group overflow-hidden"
-                    style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                    className="p-6 md:p-10 glass rounded-[30px] md:rounded-[40px] relative group overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-8">
                         <div className="w-24 h-24 bg-amber-500/10 blur-[60px] rounded-full animate-pulse" />
@@ -780,8 +776,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
                 {/* Schedule Event */}
                 <div
                     id="schedule"
-                    className="p-6 md:p-10 backdrop-blur-3xl rounded-[30px] md:rounded-[40px] border relative group overflow-hidden"
-                    style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                    className="p-6 md:p-10 glass rounded-[30px] md:rounded-[40px] relative group overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-8">
                         <div className="w-24 h-24 bg-blue-500/10 blur-[60px] rounded-full animate-pulse" />
@@ -802,8 +797,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
                 {/* Onboard Partner */}
                 <div
                     id="onboard"
-                    className="p-10 backdrop-blur-3xl rounded-[40px] border relative group overflow-hidden"
-                    style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                    className="p-10 glass rounded-[40px] relative group overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-8">
                         <div className="w-24 h-24 bg-emerald-500/10 blur-[60px] rounded-full animate-pulse" />
@@ -822,8 +816,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
                 {/* Partner Report */}
                 <div
                     id="partners"
-                    className="p-10 backdrop-blur-3xl rounded-[40px] border relative group overflow-hidden"
-                    style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                    className="p-10 glass rounded-[40px] relative group overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-8">
                         <div className="w-24 h-24 bg-pink-500/10 blur-[60px] rounded-full animate-pulse" />
@@ -891,8 +884,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             {/* 5. Tactical Intelligence - Scrim & Tournament Analytics */}
             <div
                 id="tactical"
-                className="p-8 bg-[#020617] rounded-[40px] border border-white/5 relative overflow-hidden"
-                style={{ boxShadow: 'var(--card-shadow)' }}
+                className="p-8 glass rounded-[40px] relative overflow-hidden"
             >
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
                 <div className="absolute top-0 right-0 p-8">
@@ -904,8 +896,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             {/* 6. Weekly Summary Reporting Hub - NEW */}
             <div
                 id="intel"
-                className="p-10 backdrop-blur-3xl rounded-[48px] border group overflow-hidden"
-                style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+                className="p-10 glass rounded-[48px] group overflow-hidden"
             >
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-600/50 via-amber-500/50 to-cyan-600/50" />
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
@@ -1134,7 +1125,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onViewProfile }) => {
             </div>
             {/* Squad Detail Modal */}
             <Modal isOpen={!!selectedSquadForModal} onClose={() => setSelectedSquadForModal(null)} zIndex={100} backdropClassName="bg-white/10 dark:bg-black/60 backdrop-blur-md animate-in fade-in duration-300" className="w-full max-w-4xl">
-                {selectedSquadForModal && <div className="relative w-full max-w-4xl bg-white/95 dark:bg-[#0d0d14]/95 backdrop-blur-2xl rounded-[48px] border border-cyan-500/20 shadow-[0_64px_128px_-32px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 fade-in duration-300">
+                {selectedSquadForModal && <div className="relative w-full max-w-4xl glass rounded-[48px] shadow-[0_64px_128px_-32px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 fade-in duration-300">
                     {/* Modal Header */}
                     <div className="p-10 border-b border-black/5 dark:border-white/5 flex justify-between items-center relative">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500/0 via-cyan-500 to-cyan-500/0" />

@@ -68,8 +68,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 md:pt-6 px-4 md:px-6">
       <div
-        className="max-w-[1500px] w-full backdrop-blur-3xl border rounded-[30px] md:rounded-[40px] px-6 md:px-12 py-3 md:py-5 flex items-center justify-between border-t-white/10 relative group"
-        style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+        className="max-w-[1500px] w-full glass rounded-[30px] md:rounded-[40px] px-6 md:px-12 py-3 md:py-5 flex items-center justify-between border-t-white/10 relative group"
       >
         <div className="absolute inset-0 overflow-hidden rounded-[30px] md:rounded-[40px] pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 via-amber-500/5 to-purple-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
@@ -116,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
 
               {/* Dropdown menu */}
               <div className={`absolute top-full left-1/2 -translate-x-1/2 pt-4 transition-all duration-300 transform z-50 ${showCommandMenu ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2'}`} onClick={(e) => e.stopPropagation()}>
-                <div className="w-56 bg-[#020617]/95 backdrop-blur-3xl border border-white/10 rounded-[28px] p-2 shadow-[0_30px_60px_rgba(0,0,0,0.8)] flex flex-col gap-1 overflow-hidden">
+                <div className="w-56 glass rounded-[28px] p-2 shadow-[0_30px_60px_rgba(0,0,0,0.8)] flex flex-col gap-1 overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-purple-500/5 pointer-events-none" />
                   {[
                     { label: 'Personnel Authorization', id: 'personnel', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
@@ -200,8 +199,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
 
               {showMenu && (
                 <div
-                  className="absolute top-full right-0 mt-4 w-64 backdrop-blur-3xl border rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300"
-                  style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
+                  className="absolute top-full right-0 mt-4 w-64 glass rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300"
                 >
                   <div className="p-6 border-b border-white/5 bg-gradient-to-br from-white/5 to-transparent">
                     <p className="text-[10px] text-amber-500/60 font-black uppercase tracking-[0.3em] mb-2">Personnel Clearances</p>
@@ -277,8 +275,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onProfileClick, onSetting
         {isMobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 top-[80px] md:top-[100px] z-40 p-4 animate-in fade-in slide-in-from-top-10 duration-500">
             <div
-              className="w-full backdrop-blur-3xl border rounded-[32px] p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-y-auto max-h-[calc(100vh-120px)]"
-              style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
+              className="w-full glass rounded-[32px] p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-y-auto max-h-[calc(100vh-120px)]"
             >
               <div className="flex flex-col gap-2">
                 {[

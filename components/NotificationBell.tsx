@@ -175,8 +175,7 @@ const NotificationBell: React.FC = () => {
 
             {showDropdown && (
                 <div
-                    className="absolute top-full right-0 mt-4 w-80 backdrop-blur-3xl border rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-50"
-                    style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
+                    className="absolute top-full right-0 mt-4 w-80 glass rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-50"
                 >
                     <div className="p-5 border-b border-white/5 bg-gradient-to-br from-white/5 to-transparent flex justify-between items-center gap-2">
                         <h3 className="text-[10px] text-amber-500 font-black uppercase tracking-[0.3em] shrink-0">Directives & Alerts</h3>

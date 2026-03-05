@@ -77,7 +77,7 @@ const Events: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex gap-2 p-1.5 bg-white/5 rounded-[22px] border border-white/5 w-full md:w-auto overflow-x-auto justify-center">
+                    <div className="flex gap-2 p-1.5 bg-black/20 rounded-[22px] border border-white/5 w-full md:w-auto overflow-x-auto justify-center">
                         <button
                             onClick={() => setActiveTab('upcoming')}
                             className={`px-8 py-3 font-black text-[9px] uppercase tracking-[0.2em] rounded-2xl transition-all duration-500 ${activeTab === 'upcoming' ? 'bg-purple-600 text-white shadow-[0_10px_20px_rgba(147,51,234,0.3)]' : 'text-slate-500 hover:text-slate-300'}`}>
@@ -109,7 +109,7 @@ const Events: React.FC = () => {
                             >
                                 <div className="absolute inset-0 bg-gradient-to-r from-amber-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                                <div className="md:w-56 bg-white/[0.02] flex flex-row md:flex-col items-center justify-center p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/5 group-hover:bg-amber-500/5 transition-colors gap-4 md:gap-0">
+                                <div className="md:w-56 bg-black/20 flex flex-row md:flex-col items-center justify-center p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/5 group-hover:bg-amber-500/5 transition-colors gap-4 md:gap-0">
                                     <div className="flex flex-col items-center">
                                         <span className="text-3xl md:text-5xl font-black text-white italic tracking-tighter group-hover:scale-110 transition-transform duration-500">{new Date(event.date).getDate().toString().padStart(2, '0')}</span>
                                         <span className="text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.3em] mt-1 md:mt-2">{new Date(event.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</span>
@@ -138,7 +138,7 @@ const Events: React.FC = () => {
                                     <p className="text-slate-400 text-xs md:text-sm line-clamp-2 md:line-clamp-none font-medium leading-relaxed max-w-2xl">{event.description}</p>
                                 </div>
 
-                                <div className="p-6 md:p-10 flex items-center justify-center border-t md:border-t-0 md:border-l border-white/5 bg-white/[0.01]">
+                                <div className="p-6 md:p-10 flex items-center justify-center border-t md:border-t-0 md:border-l border-white/5 bg-black/10">
                                     <button className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-[24px] bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-amber-500 group-hover:border-amber-400 group-hover:text-black text-amber-500 transition-all duration-500 shadow-xl group-hover:shadow-amber-500/20 active:scale-90">
                                         <svg className="w-5 h-5 md:w-6 md:h-6 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                     </button>
@@ -185,7 +185,7 @@ const Events: React.FC = () => {
 
                     <div className="p-6 md:p-12 space-y-8 md:space-y-12">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="flex items-center space-x-6 p-6 bg-white/[0.02] rounded-[30px] border border-white/5">
+                            <div className="flex items-center space-x-6 p-6 glass rounded-[30px] border border-white/5">
                                 <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shadow-xl">
                                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
@@ -194,7 +194,7 @@ const Events: React.FC = () => {
                                     <div className="font-black text-white italic tracking-tight">{new Date(selectedEvent.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}</div>
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-6 p-6 bg-white/[0.02] rounded-[30px] border border-white/5">
+                            <div className="flex items-center space-x-6 p-6 glass rounded-[30px] border border-white/5">
                                 <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-xl">
                                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                 </div>
@@ -207,7 +207,7 @@ const Events: React.FC = () => {
 
                         <div className="space-y-4">
                             <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] ml-2">Mission Briefing</h3>
-                            <div className="p-8 bg-white/[0.02] rounded-[30px] border border-white/5">
+                            <div className="p-8 glass rounded-[30px] border border-white/5">
                                 <p className="text-slate-400 leading-relaxed font-medium whitespace-pre-line text-lg">
                                     {selectedEvent.description}
                                 </p>

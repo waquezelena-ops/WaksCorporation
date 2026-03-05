@@ -68,7 +68,7 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                 <select
                     value={selectedTeamId}
                     onChange={(e) => setSelectedTeamId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                    className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-amber-500/30 rounded-2xl px-6 py-3 text-sm font-black text-amber-600 dark:text-amber-400 focus:outline-none focus:border-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="glass backdrop-blur-xl border border-white/10 rounded-2xl px-6 py-3 text-sm font-black text-amber-500 focus:outline-none focus:border-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.1)] transition-all cursor-pointer hover:bg-white/5"
                 >
                     <option value="all">Global Organizational Stats</option>
                     {availableTeams.map(t => (
@@ -88,7 +88,7 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                 <div className="space-y-12">
                     {/* Maps Mastery Section - NEW */}
                     {data.mapStats && data.mapStats.length > 0 && (
-                        <div className="bg-white dark:bg-slate-900/40 backdrop-blur-2xl p-10 rounded-[40px] border border-slate-200 dark:border-amber-500/10 shadow-soft">
+                        <div className="glass backdrop-blur-2xl p-10 rounded-[40px] border border-white/10 shadow-soft relative group">
                             <h4 className="text-xs font-black text-amber-600 dark:text-amber-500/60 uppercase tracking-[0.3em] mb-8 text-center">Strategic Map Mastery</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                                 {data.mapStats.map((map, idx) => (
@@ -127,7 +127,7 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                         {/* KDA Chart */}
-                        <div className="bg-white dark:bg-slate-900/40 backdrop-blur-2xl p-10 rounded-[40px] border border-slate-200 dark:border-purple-500/10 shadow-soft relative group">
+                        <div className="glass backdrop-blur-2xl p-10 rounded-[40px] border border-white/10 shadow-soft relative group">
                             <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-100 transition-opacity">
                                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
                             </div>
@@ -194,7 +194,7 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                     </div>
                 </div>
             ) : (
-                <div className="h-96 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[40px] bg-white dark:bg-slate-900/20">
+                <div className="h-96 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-white/10 rounded-[40px] bg-black/20">
                     <svg className="w-12 h-12 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                     <p className="font-bold uppercase tracking-widest text-xs">No Combat Records Found</p>
                 </div>

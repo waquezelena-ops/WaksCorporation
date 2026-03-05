@@ -22,6 +22,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './hooks/useNotification';
 import { GET_API_BASE_URL } from './utils/apiUtils';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
+import LoadingScreen from './components/LoadingScreen';
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -192,7 +193,7 @@ const App: React.FC = () => {
 
   const AccessDenied = () => (
     <div className="min-h-[60vh] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-500">
-      <div className="max-w-md w-full bg-[#020617]/80 backdrop-blur-2xl border border-amber-500/30 rounded-[32px] p-10 text-center shadow-2xl shadow-amber-500/10 relative overflow-hidden">
+      <div className="max-w-md w-full glass rounded-[32px] p-10 text-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-600 via-amber-400 to-purple-600" />
         <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)]">
           <svg className="w-10 h-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -214,18 +215,7 @@ const App: React.FC = () => {
   );
 
   if (loading) {
-    return (
-      <div className="min-h-screen glow-mesh flex flex-col items-center justify-center space-y-8">
-        <div className="relative">
-          <div className="w-20 h-20 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin" />
-          <div className="absolute inset-0 w-20 h-20 border-4 border-purple-500/10 border-b-purple-500 rounded-full animate-spin-slow" />
-        </div>
-        <div className="text-center">
-          <p className="text-amber-500 font-black uppercase tracking-[0.4em] text-xs animate-pulse">Establishing Secure Signal...</p>
-          <p className="text-[10px] text-slate-500 uppercase font-bold mt-2 tracking-widest">Waks Corporation Command Center</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (

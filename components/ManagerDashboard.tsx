@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../hooks/useNotification';
+import { animate, stagger } from 'animejs';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
 import PerformanceTracker from './PerformanceTracker';
 import AddAchievementForm from './AddAchievementForm';
@@ -152,6 +153,38 @@ const ManagerDashboard: React.FC<{
     };
 
     useEffect(() => {
+        if (view === 'menu' && !loading) {
+            // Use requestAnimationFrame to ensure DOM is painted
+            requestAnimationFrame(() => {
+                const targets = document.querySelectorAll('.menu-card');
+                if (targets.length > 0) {
+                    animate('.menu-card', {
+                        translateY: [20, 0],
+                        opacity: [0, 1],
+                        delay: stagger(100),
+                        easing: 'easeOutQuart',
+                        duration: 800
+                    });
+                }
+            });
+        }
+    }, [view, loading]);
+
+    useEffect(() => {
+        if (view === 'operative-matrix' && !loading) {
+            requestAnimationFrame(() => {
+                animate('.squad-row', {
+                    opacity: [0, 1],
+                    translateX: [-10, 0],
+                    delay: stagger(50),
+                    easing: 'easeOutQuart',
+                    duration: 600
+                });
+            });
+        }
+    }, [view, loading, teams]);
+
+    useEffect(() => {
         fetchManagerData();
 
         const handleReset = (e: any) => {
@@ -256,8 +289,7 @@ const ManagerDashboard: React.FC<{
 
     return (
         <div
-            className="backdrop-blur-3xl rounded-[32px] md:rounded-[48px] p-6 md:p-12 border mt-8 md:mt-12 transition-all relative overflow-hidden group"
-            style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+            className="glass rounded-[32px] md:rounded-[48px] p-6 md:p-12 mt-8 md:mt-12 transition-all relative overflow-hidden group"
         >
             <div className="absolute top-0 right-0 p-6 md:p-12">
                 <div className="w-32 h-32 md:w-64 md:h-64 bg-purple-500/5 blur-[80px] md:blur-[120px] rounded-full group-hover:bg-purple-500/10 transition-all duration-1000" />
@@ -338,7 +370,8 @@ const ManagerDashboard: React.FC<{
                                     setView(item.id as any);
                                 }
                             }}
-                            className="bg-white dark:bg-black/40 p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-200 dark:border-white/5 hover:border-amber-500/30 transition-all cursor-pointer group shadow-xl relative overflow-hidden active:scale-95"
+                            className="menu-card glass p-6 md:p-8 rounded-[32px] md:rounded-[40px] hover:border-amber-500/30 transition-all cursor-pointer group shadow-xl relative overflow-hidden active:scale-95"
+                            style={{ opacity: 0 }}
                         >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-slate-100 dark:bg-white/5 blur-[40px] rounded-full group-hover:bg-amber-500/10 transition-colors" />
                             <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-black transition-all shadow-xl">
@@ -364,7 +397,7 @@ const ManagerDashboard: React.FC<{
                 <div className="space-y-12 animate-in fade-in duration-700">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                         {/* Unit Initialization Form */}
-                        <form onSubmit={handleCreateTeam} className="space-y-6 bg-white dark:bg-black/40 p-8 md:p-10 rounded-[32px] border border-slate-200 dark:border-white/5 relative" style={{ boxShadow: 'var(--card-shadow)' }}>
+                        <form onSubmit={handleCreateTeam} className="glass p-8 md:p-10 rounded-[32px] relative">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500/0 via-purple-500 to-purple-500/0" />
                             <h3 className="text-xl font-black text-[var(--text-color)] mb-6 uppercase tracking-tight flex items-center">
                                 <span className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mr-3 text-purple-500">
@@ -375,12 +408,12 @@ const ManagerDashboard: React.FC<{
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2 ml-2">Unit Designation</label>
-                                    <input type="text" required value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full bg-slate-50 dark:bg-[#020617]/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-700" placeholder="e.g. VALORANT ALPHA" />
+                                    <input type="text" required value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full bg-slate-200/50 dark:bg-[#020617]/60 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-600 dark:focus:border-amber-500/50 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-700 text-[var(--text-color)] dark:text-white" placeholder="e.g. VALORANT ALPHA" />
                                 </div>
                                 <div>
                                     <label className="block text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2 ml-2">Combat Simulator</label>
                                     <div className="relative">
-                                        <select required value={teamGame} onChange={e => setTeamGame(e.target.value)} className="w-full bg-slate-50 dark:bg-[#020617]/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-500/50 transition-all appearance-none cursor-pointer">
+                                        <select required value={teamGame} onChange={e => setTeamGame(e.target.value)} className="w-full bg-slate-200/50 dark:bg-[#020617]/60 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-600 dark:focus:border-amber-500/50 transition-all appearance-none cursor-pointer text-[var(--text-color)] dark:text-white">
                                             <option value="" className="bg-white dark:bg-[#020617]">-- SELECT TITLE --</option>
                                             {GAME_TITLES.map(title => (
                                                 <option key={title} value={title} className="bg-white dark:bg-[#020617]">{title.toUpperCase()}</option>
@@ -391,7 +424,7 @@ const ManagerDashboard: React.FC<{
                                 </div>
                                 <div>
                                     <label className="block text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2 ml-2">Mission Parameters</label>
-                                    <textarea value={teamDesc} onChange={e => setTeamDesc(e.target.value)} className="w-full bg-slate-50 dark:bg-[#020617]/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-700" rows={3} placeholder="DEFINE OBJECTIVES..." />
+                                    <textarea value={teamDesc} onChange={e => setTeamDesc(e.target.value)} className="w-full bg-slate-200/50 dark:bg-[#020617]/60 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-[10px] font-black tracking-tight focus:outline-none focus:border-amber-600 dark:focus:border-amber-500/50 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-700 text-[var(--text-color)] dark:text-white" rows={3} placeholder="DEFINE OBJECTIVES..." />
                                 </div>
                             </div>
                             <button type="submit" className="w-full py-4 mt-4 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-black uppercase tracking-[0.3em] text-[10px] rounded-xl transition-all shadow-xl shadow-purple-500/20 active:scale-95 border-t border-white/20">
@@ -400,7 +433,7 @@ const ManagerDashboard: React.FC<{
                         </form>
 
                         {/* Operative Matrix Form */}
-                        <form onSubmit={handleAddPlayer} className="space-y-6 bg-white dark:bg-black/40 p-8 md:p-10 rounded-[32px] border border-slate-200 dark:border-white/5 relative" style={{ boxShadow: 'var(--card-shadow)' }}>
+                        <form onSubmit={handleAddPlayer} className="glass p-8 md:p-10 rounded-[32px] relative">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500/0 via-amber-500 to-amber-500/0" />
                             <h3 className="text-xl font-black text-[var(--text-color)] mb-6 uppercase tracking-tight flex items-center">
                                 <span className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center mr-3 text-amber-500">
@@ -544,7 +577,7 @@ const ManagerDashboard: React.FC<{
                             </div>
                         </div>
 
-                        <div className="bg-white/40 dark:bg-black/40 backdrop-blur-3xl rounded-[32px] border border-slate-200 dark:border-white/5 overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)]">
+                        <div className="glass rounded-[32px] overflow-hidden">
                             <div className="overflow-x-auto custom-scrollbar">
                                 <table className="w-full text-left border-collapse">
                                     <thead className="sticky top-0 bg-white/80 dark:bg-[#0d0d14]/80 backdrop-blur-md z-10">
@@ -560,11 +593,12 @@ const ManagerDashboard: React.FC<{
                                             <tr
                                                 key={team.id}
                                                 onClick={() => setSelectedSquadForModal(team)}
-                                                className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-all cursor-pointer"
+                                                className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-all cursor-pointer squad-row"
+                                                style={{ opacity: 0 }}
                                             >
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center space-x-4">
-                                                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 font-black text-xs border border-amber-500/20 group-hover:scale-110 transition-transform">
+                                                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 flex items-center justify-center text-amber-700 dark:text-amber-500 font-black text-xs border border-amber-500/20 group-hover:scale-110 transition-transform">
                                                             {team.name.charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
@@ -708,7 +742,7 @@ const ManagerDashboard: React.FC<{
                                 <span className="bg-amber-500 text-black px-3 md:px-4 py-1 rounded-lg md:xl mr-3 md:mr-4 text-lg md:text-2xl font-black">NQ-01</span>
                                 Victory Log
                             </h2>
-                            <p className="text-[8px] md:text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.4em] mt-2 md:mt-3 md:ml-1 leading-relaxed">Live Tournament Results & Achievement Logging</p>
+                            <p className="text-[8px] md:text-[10px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.4em] mt-2 md:mt-3 md:ml-1 leading-relaxed">Live Tournament Results & Achievement Logging</p>
                         </div>
                     </div>
 

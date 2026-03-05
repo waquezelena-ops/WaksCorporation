@@ -386,7 +386,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, targetUserId, userRole, backT
                             <div className="flex items-center space-x-4 border-l-4 border-amber-500 pl-6 h-8">
                                 <h3 className="text-xl font-black text-white uppercase tracking-tighter">Personnel Authentication</h3>
                             </div>
-                            <div className="space-y-8 bg-white/[0.02] p-8 rounded-[32px] border border-white/5 shadow-inner">
+                            <div className="space-y-8 glass p-8 rounded-[32px] shadow-inner">
                                 {isEditing ? (
                                     <>
                                         <div className="space-y-2">
@@ -441,7 +441,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, targetUserId, userRole, backT
                             <div className="flex items-center space-x-4 border-l-4 border-cyan-500 pl-6 h-8">
                                 <h3 className="text-xl font-black text-white uppercase tracking-tighter h-full">Temporal Epoch</h3>
                             </div>
-                            <div className="bg-white/[0.02] p-8 rounded-[32px] border border-white/5 shadow-inner">
+                            <div className="glass p-8 rounded-[32px] shadow-inner">
                                 {isEditing ? (
                                     <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white font-black tracking-[0.2em] focus:outline-none focus:border-cyan-500/50 transition-all [color-scheme:dark]" />
                                 ) : (

@@ -297,7 +297,7 @@ const Playbook: React.FC<{ userRole?: string; userId?: number; lockedTeamId?: nu
                                 <select
                                     value={selectedTeamId}
                                     onChange={e => setSelectedTeamId(e.target.value === '' ? '' : Number(e.target.value))}
-                                    className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-color)] focus:outline-none focus:border-fuchsia-500/50 transition-all appearance-none cursor-pointer shadow-xl"
+                                    className="w-full bg-black/40 glass border border-white/10 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white focus:outline-none focus:border-fuchsia-500/50 transition-all appearance-none cursor-pointer shadow-xl"
                                 >
                                     <option value="" disabled className="bg-white dark:bg-[#020617]">-- SELECT UNIT --</option>
                                     {teams.map(t => <option key={t.id} value={t.id} className="bg-white dark:bg-[#020617] text-slate-900 dark:text-white">{t.name.toUpperCase()}</option>)}
@@ -321,7 +321,7 @@ const Playbook: React.FC<{ userRole?: string; userId?: number; lockedTeamId?: nu
                     <div className="flex flex-col lg:flex-row gap-8">
                         {/* Sidebar Filters */}
                         <div className="w-full lg:w-64 shrink-0 space-y-6">
-                            <div className="bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[32px] p-6 shadow-2xl">
+                            <div className="glass backdrop-blur-xl border border-white/5 rounded-[32px] p-6 shadow-2xl">
                                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-200 dark:border-white/5 pb-4">Filter Protocols</h3>
 
                                 <div className="space-y-6">
@@ -454,7 +454,7 @@ const Playbook: React.FC<{ userRole?: string; userId?: number; lockedTeamId?: nu
 
             {/* Editor Modal */}
             <Modal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} zIndex={100} backdropClassName="bg-black/80 backdrop-blur-md" className="w-[95%] max-w-4xl">
-                <div className="bg-white/95 dark:bg-[#0d0d14]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[48px] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden relative">
+                <div className="glass backdrop-blur-3xl rounded-[40px] md:rounded-[48px] border border-white/10 shadow-2xl overflow-hidden relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500/0 via-fuchsia-500 to-fuchsia-500/0" />
 
                     <div className="p-6 md:p-10 border-b border-slate-200 dark:border-white/5 flex justify-between items-center">
@@ -561,7 +561,7 @@ const Playbook: React.FC<{ userRole?: string; userId?: number; lockedTeamId?: nu
 
             {/* Detail Modal */}
             <Modal isOpen={!!selectedStrat} onClose={() => setSelectedStrat(null)} zIndex={90} backdropClassName="bg-black/40 backdrop-blur-sm" className="w-[95%] max-w-5xl">
-                {selectedStrat && <div className="bg-white dark:bg-[#020617] rounded-[40px] border border-slate-200 dark:border-white/10 shadow-[0_32px_128px_-10px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 duration-300">
+                {selectedStrat && <div className="glass rounded-[40px] border border-white/10 shadow-[0_32px_128px_-10px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in-95 duration-300">
 
                     {/* Header */}
                     <div className={`p-8 md:p-12 relative overflow-hidden ${selectedStrat.side === 'Attack' ? 'bg-amber-500/10' : selectedStrat.side === 'Defense' ? 'bg-emerald-500/10' : 'bg-fuchsia-500/10'}`}>
@@ -649,7 +649,7 @@ const Playbook: React.FC<{ userRole?: string; userId?: number; lockedTeamId?: nu
                         </div>
                         {isManagement && (
                             <div className="flex items-center gap-4 w-full md:w-auto">
-                                <button onClick={() => { setSelectedStrat(null); openEditor(selectedStrat); }} disabled={saving} className="flex-1 md:flex-none px-8 py-3 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-[var(--text-color)] border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50">
+                                <button onClick={() => { setSelectedStrat(null); openEditor(selectedStrat); }} disabled={saving} className="flex-1 md:flex-none px-8 py-3 glass hover:bg-white/10 text-white border border-white/10 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50">
                                     Edit Strat
                                 </button>
                                 <button onClick={() => handleDeleteStrat(selectedStrat.id)} disabled={saving} className="flex-1 md:flex-none px-8 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50">

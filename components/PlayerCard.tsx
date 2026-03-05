@@ -4,7 +4,7 @@ import { getTacticalRole, getRankBadge } from '../utils/tactical';
 export const PlayerCard: React.FC<{ player: any; onClick: () => void }> = ({ player, onClick }) => (
     <div
         onClick={onClick}
-        className="nxc-player-card flex-shrink-0 w-[260px] md:w-[300px] group relative rounded-[30px] md:rounded-[40px] overflow-hidden bg-white dark:bg-[#020617]/60 backdrop-blur-3xl border border-slate-200 dark:border-white/5 shadow-soft transition-all duration-700 hover:border-amber-500/40 hover:shadow-amber-500/10 snap-center cursor-pointer"
+        className="nxc-player-card flex-shrink-0 w-[260px] md:w-[300px] group relative rounded-[30px] md:rounded-[40px] overflow-hidden glass shadow-soft transition-all duration-700 hover:border-amber-500/40 hover:shadow-amber-500/10 snap-center cursor-pointer"
     >
         <div className="aspect-[4/5] overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-1000 relative">
             <img src={player.image} alt={player.name} className="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-1000" />

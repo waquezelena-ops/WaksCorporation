@@ -8,8 +8,7 @@ const Hero: React.FC = () => {
     <div className="relative text-center space-y-8 md:space-y-12 pt-16 md:pt-28">
 
       <div
-        className="relative z-10 max-w-6xl mx-auto backdrop-blur-3xl rounded-[32px] md:rounded-[48px] p-8 md:p-24 border relative overflow-hidden group mx-4 lg:mx-auto"
-        style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)', boxShadow: 'var(--card-shadow)' }}
+        className="relative z-10 max-w-6xl mx-auto glass rounded-[32px] md:rounded-[48px] p-8 md:p-24 relative overflow-hidden group mx-4 lg:mx-auto"
       >
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 

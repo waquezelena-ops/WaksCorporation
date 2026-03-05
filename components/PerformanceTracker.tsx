@@ -52,14 +52,14 @@ const PerformanceTracker: React.FC<{ teamId: number }> = ({ teamId }) => {
     if (!stats) return <div className="p-8 text-center text-slate-500">No data available.</div>;
 
     return (
-        <div className="bg-white dark:bg-[#161621] rounded-3xl p-8 border border-slate-200 dark:border-white/5 shadow-soft transition-colors">
+        <div className="glass rounded-3xl p-8 shadow-soft transition-colors">
             <h2 className="text-2xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400">
                 Team Performance
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 {/* Win Rate Card */}
-                <div className="bg-slate-50 dark:bg-black/20 p-6 rounded-2xl border border-slate-200 dark:border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+                <div className="bg-black/20 p-6 rounded-2xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
                     <div className="absolute inset-0 bg-blue-500/5 group-hover:bg-blue-500/10 transition-colors" />
                     <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs mb-2 z-10">Win Rate</span>
                     <div className="relative">
@@ -77,7 +77,7 @@ const PerformanceTracker: React.FC<{ teamId: number }> = ({ teamId }) => {
                 </div>
 
                 {/* Form & Overview */}
-                <div className="bg-slate-50 dark:bg-black/20 p-6 rounded-2xl border border-slate-200 dark:border-white/5 flex flex-col justify-between">
+                <div className="bg-black/20 p-6 rounded-2xl border border-white/5 flex flex-col justify-between">
                     <div>
                         <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">Recent Form</span>
                         <div className="flex space-x-2 mt-3">
@@ -96,7 +96,7 @@ const PerformanceTracker: React.FC<{ teamId: number }> = ({ teamId }) => {
                 </div>
 
                 {/* Top Player (MVP) */}
-                <div className="bg-slate-50 dark:bg-black/20 p-6 rounded-2xl border border-slate-200 dark:border-white/5 relative overflow-hidden">
+                <div className="bg-black/20 p-6 rounded-2xl border border-white/5 relative overflow-hidden">
                     <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">Top Performer (K/D)</span>
                     {stats.topPlayers.length > 0 ? (
                         <div className="mt-4">
@@ -143,7 +143,7 @@ const PerformanceTracker: React.FC<{ teamId: number }> = ({ teamId }) => {
                     <h3 className="font-bold text-lg mb-4 text-slate-700 dark:text-slate-200">Player Stats (Avg)</h3>
                     <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-white/5">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-100 dark:bg-white/5 text-slate-500 uppercase text-xs">
+                            <thead className="bg-white/5 text-slate-500 uppercase text-xs">
                                 <tr>
                                     <th className="p-3">Player</th>
                                     <th className="p-3 text-right">K/D</th>
@@ -154,7 +154,7 @@ const PerformanceTracker: React.FC<{ teamId: number }> = ({ teamId }) => {
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                                 {stats.topPlayers.map((p, i) => (
-                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                    <tr key={i} className="hover:bg-white/5 transition-colors">
                                         <td className="p-3 font-bold text-slate-700 dark:text-slate-300">{p.name}</td>
                                         <td className="p-3 text-right font-mono font-bold text-amber-500">{p.kd}</td>
                                         <td className="p-3 text-right font-mono font-bold">
