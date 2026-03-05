@@ -257,13 +257,14 @@ const App: React.FC = () => {
               }} userRole={userRole} />
             ) : (
               <>
+                <div className={currentView === 'home' ? 'contents' : 'hidden'}>
+                  <Hero isActive={currentView === 'home'} userEmail={user?.email} />
+                </div>
+
                 {currentView === 'home' && (
-                  <>
-                    <Hero />
-                    <section id="dashboard" className="scroll-mt-32">
-                      <Dashboard onProfileClick={() => handleNavigate('profile')} userId={dbUserId} userRole={userRole} />
-                    </section>
-                  </>
+                  <section id="dashboard" className="scroll-mt-32">
+                    <Dashboard onProfileClick={() => handleNavigate('profile')} userId={dbUserId} userRole={userRole} />
+                  </section>
                 )}
 
                 {currentView === 'admin' && (

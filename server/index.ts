@@ -1080,7 +1080,7 @@ app.get('/api/teams/:id/stats', async (req, res) => {
 
                 // Track agent stats for team
                 if (stat.agent) {
-                    if (!scrimAgentStats[stat.agent]) scrimAgentStats[stat.agent] = { wins: 0, draws: 0, total: 0, maps: {} } as any;
+                    if (!scrimAgentStats[stat.agent]) scrimAgentStats[stat.agent] = { wins: 0, draws: 0, total: 0, maps: {}, history: [] } as any;
                     scrimAgentStats[stat.agent].total++;
                     if (stat.isWin === 1) {
                         scrimAgentStats[stat.agent].wins++;
@@ -1191,7 +1191,7 @@ app.get('/api/teams/:id/stats', async (req, res) => {
 
                 // Track agent stats for team
                 if (stat.agent) {
-                    if (!tourneyAgentStats[stat.agent]) tourneyAgentStats[stat.agent] = { wins: 0, draws: 0, total: 0, maps: {} } as any;
+                    if (!tourneyAgentStats[stat.agent]) tourneyAgentStats[stat.agent] = { wins: 0, draws: 0, total: 0, maps: {}, history: [] } as any;
                     tourneyAgentStats[stat.agent].total++;
                     if (stat.isWin === 1) {
                         tourneyAgentStats[stat.agent].wins++;
