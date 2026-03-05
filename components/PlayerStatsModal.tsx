@@ -321,39 +321,56 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                             </div>
 
                                             {/* Agent Service Record */}
-                                            <div className="space-y-8">
-                                                <div className="flex items-center space-x-4 text-amber-500">
-                                                    <div className="w-1.5 h-8 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
-                                                    <h4 className="text-sm font-black uppercase tracking-[0.4em] italic">Agent Service Record</h4>
+                                            <div className="bg-white/5 border border-white/5 rounded-[32px] p-8">
+                                                <div className="flex items-center justify-between mb-8">
+                                                    <div>
+                                                        <p className="text-[10px] text-amber-500/60 font-black uppercase tracking-[0.4em] mb-1">Combat History</p>
+                                                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Agent Service Record</h3>
+                                                    </div>
                                                 </div>
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {breakdown?.agents?.map((agent: any, idx: number) => (
-                                                        <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-amber-500/5 transition-all">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 overflow-hidden">
-                                                                    <img
-                                                                        src={`/assets/agents/${agent.name.replace('/', '_')}${agent.name === 'Veto' ? '.webp' : '.png'}`}
-                                                                        className="w-10 h-10 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform"
-                                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                                                    />
+
+                                                <div className="max-h-[460px] overflow-y-auto custom-scrollbar pr-2">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {breakdown?.agents?.map((agent: any, idx: number) => (
+                                                            <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-6 flex flex-col gap-4 hover:border-amber-500/20 transition-all duration-300 group">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="relative">
+                                                                            <div className="absolute -inset-1 bg-amber-500/20 blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                            <img
+                                                                                src={`/assets/agents/${agent.name.replace('/', '_')}${agent.name === 'Veto' ? '.webp' : '.png'}`}
+                                                                                className="w-10 h-10 object-contain relative z-10"
+                                                                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className="text-sm font-black text-white uppercase italic tracking-tighter leading-none">{agent.name}</h4>
+                                                                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">{agent.role}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-xs font-black text-amber-500">{agent.winRate}%</p>
+                                                                        <p className="text-[7px] text-slate-600 font-bold uppercase tracking-widest">Win Rate</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <p className="text-sm font-black text-white uppercase italic tracking-tight">{agent.name}</p>
-                                                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">{agent.total || agent.matches} Missions Logged</p>
+
+                                                                <div className="grid grid-cols-3 gap-2">
+                                                                    <div className="bg-white/5 rounded-xl p-2 text-center">
+                                                                        <p className="text-[10px] font-black text-white">{agent.matches}</p>
+                                                                        <p className="text-[6px] text-slate-500 font-black uppercase tracking-widest">Ops</p>
+                                                                    </div>
+                                                                    <div className="bg-white/5 rounded-xl p-2 text-center">
+                                                                        <p className="text-[10px] font-black text-emerald-500">{agent.kda.toFixed(2)}</p>
+                                                                        <p className="text-[6px] text-slate-500 font-black uppercase tracking-widest">KDA</p>
+                                                                    </div>
+                                                                    <div className="bg-white/5 rounded-xl p-2 text-center border border-amber-500/10">
+                                                                        <p className="text-[10px] font-black text-amber-500">{Math.round(agent.kills / (agent.matches || 1))}</p>
+                                                                        <p className="text-[6px] text-slate-500 font-black uppercase tracking-widest">Avg K</p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center gap-8">
-                                                                <div className="text-right">
-                                                                    <p className={`text-base font-black italic ${getKDAColor((agent.kda || 0).toFixed(2))}`}>{agent.kda?.toFixed(2)}</p>
-                                                                    <p className="text-[7px] text-slate-600 font-black uppercase tracking-tighter">Avg KDA</p>
-                                                                </div>
-                                                                <div className="text-right w-16">
-                                                                    <p className="text-base font-black text-emerald-500 italic">{agent.winRate || 0}%</p>
-                                                                    <p className="text-[7px] text-slate-600 font-black uppercase tracking-tighter">Victory</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
 

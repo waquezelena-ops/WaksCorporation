@@ -3,6 +3,7 @@ import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
+import { animate, stagger } from 'animejs';
 import { calculateKDA, getKDAColor, parseMatchResult } from '../utils/tactical';
 import PlayerStatsModal from './PlayerStatsModal';
 import { GET_API_BASE_URL } from '../utils/apiUtils';
@@ -191,7 +192,7 @@ const PlayerStatsTable: React.FC<{ stats: PlayerStat[], title: string, onPlayerC
                             );
                         }
                         return activeStats.map((p, i) => (
-                            <tr key={i} onClick={() => onPlayerClick(p)} className="hover:bg-white/[0.02] transition-colors group cursor-pointer">
+                            <tr key={i} onClick={() => onPlayerClick(p)} className="hover:bg-white/[0.02] transition-colors group cursor-pointer tactical-row opacity-0">
                                 <td className="px-8 py-5">
                                     <div className="flex items-center gap-4">
                                         <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 text-[10px] font-black border border-amber-500/20">
@@ -307,7 +308,7 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
     return (
         <div className="space-y-10">
             {/* Top row: donut + form + status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 tactical-metric-card opacity-0">
                 <div className="bg-white/[0.02] rounded-[24px] md:rounded-[32px] border border-white/5 p-6 md:p-8 flex flex-col items-center justify-center">
                     <SectionLabel label="Combat Record" />
                     <DonutRing wins={wins} losses={losses} draws={draws} label="Win Rate" />
@@ -337,7 +338,7 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
 
             {/* Map Win Rate Bars */}
             {mapData.length > 0 && (
-                <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8">
+                <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8 tactical-chart-container opacity-0">
                     <SectionLabel label="Theater Win Rate (%)" />
                     <div className="h-[250px] min-h-[250px] w-full"> {/* Stable height wrapper */}
                         <ResponsiveContainer width="100%" height="100%">
@@ -423,7 +424,7 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
     return (
         <div className="space-y-10">
             {/* Top row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 tactical-metric-card opacity-0">
                 <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8 flex flex-col items-center justify-center">
                     <SectionLabel label="Tournament Record" />
                     <DonutRing wins={wins} losses={losses} draws={draws} label="Tournament Win Rate" />
@@ -464,7 +465,7 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
 
             {/* Opponent Frequency */}
             {opponentData.length > 0 && (
-                <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8">
+                <div className="bg-white/[0.02] rounded-[32px] border border-white/5 p-8 tactical-chart-container opacity-0">
                     <SectionLabel label="Opponent Frequency" color="text-purple-400/60" />
                     <div className="h-[250px] min-h-[250px] w-full"> {/* Stable height wrapper */}
                         <ResponsiveContainer width="100%" height="100%">
@@ -596,6 +597,40 @@ const TacticalIntelGraphs: React.FC<TacticalIntelGraphsProps> = ({ teamId: initi
             setIntelError(err.message || 'Quantum Feed Interrupted');
         }).finally(() => setLoading(false));
     }, [selectedTeamId, API]);
+
+    // Premium Entry Animations
+    useEffect(() => {
+        if (!loading && stats) {
+            requestAnimationFrame(() => {
+                // Card Animations
+                animate('.tactical-metric-card', {
+                    opacity: [0, 1],
+                    translateY: [30, 0],
+                    delay: stagger(100),
+                    duration: 800,
+                    easing: 'easeOutQuart'
+                });
+
+                // Chart Entry
+                animate('.tactical-chart-container', {
+                    opacity: [0, 1],
+                    scale: [0.95, 1],
+                    delay: 400,
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                });
+
+                // Table Stagger
+                animate('.tactical-row', {
+                    opacity: [0, 1],
+                    translateX: [-20, 0],
+                    delay: stagger(50, { start: 600 }),
+                    duration: 600,
+                    easing: 'easeOutQuart'
+                });
+            });
+        }
+    }, [loading, stats, activeTab]);
 
     const availableMonths = React.useMemo(() => {
         const months = new Set<string>();
@@ -819,7 +854,7 @@ const TacticalIntelGraphs: React.FC<TacticalIntelGraphsProps> = ({ teamId: initi
                                                 <button
                                                     key={idx}
                                                     onClick={() => setSelectedAgentPopup({ ...agent, pickPct, allMatches })}
-                                                    className="flex-shrink-0 w-64 bg-black/40 rounded-2xl border border-white/5 p-6 space-y-4 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all group text-left"
+                                                    className="flex-shrink-0 w-64 bg-black/40 rounded-2xl border border-white/5 p-6 space-y-4 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all group text-left tactical-metric-card opacity-0"
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
@@ -942,51 +977,29 @@ const TacticalIntelGraphs: React.FC<TacticalIntelGraphsProps> = ({ teamId: initi
                                         )}
 
                                         {/* Operative Records — per player */}
-                                        {/* Mission History — Historical logs for this agent */}
                                         <div className="mt-10">
                                             <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4">Historical Mission Logs</p>
-                                            {ag.allMatches.filter((s: any) => {
-                                                let results: any[] = [];
-                                                try {
-                                                    results = typeof s.results === 'string' ? JSON.parse(s.results) : (s.results || []);
-                                                } catch { results = []; }
-                                                return results.some((r: any) => r && r.agent === ag.name);
-                                            }).length === 0 ? (
+                                            {!ag.history || ag.history.length === 0 ? (
                                                 <p className="text-center text-[10px] text-slate-600 font-black uppercase tracking-widest py-8 italic border border-white/5 rounded-2xl">No historical logs found for this agent unit</p>
                                             ) : (
                                                 <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1">
-                                                    {ag.allMatches.filter((s: any) => {
-                                                        let results: any[] = [];
-                                                        try {
-                                                            results = typeof s.results === 'string' ? JSON.parse(s.results) : (s.results || []);
-                                                        } catch { results = []; }
-                                                        return results.some((r: any) => r && r.agent === ag.name);
-                                                    }).map((s: any, i: number) => {
-                                                        let results: any[] = [];
-                                                        try {
-                                                            results = typeof s.results === 'string' ? JSON.parse(s.results) : (s.results || []);
-                                                        } catch { results = []; }
-                                                        const matchData = results.find((r: any) => r && r.agent === ag.name);
-                                                        const res = parseMatchResult(matchData?.score, matchData?.isVictory);
-
-                                                        return (
-                                                            <div key={i} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between hover:bg-white/[0.08] transition-all">
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[8px] ${res === 1 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                                        {res === 1 ? 'W' : 'L'}
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-[10px] font-black text-white uppercase">vs {s.opponent || 'UNKNOWN'}</p>
-                                                                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">{new Date(s.date).toLocaleDateString()}</p>
-                                                                    </div>
+                                                    {ag.history.map((s: any, i: number) => (
+                                                        <div key={i} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between hover:bg-white/[0.08] transition-all">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[8px] ${s.isWin ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                                    {s.isWin ? 'W' : 'L'}
                                                                 </div>
-                                                                <div className="text-right">
-                                                                    <p className="text-[10px] font-black text-amber-500 italic">{matchData?.score || '0-0'}</p>
-                                                                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">{matchData?.map || 'UNKNOWN'}</p>
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-white uppercase">vs {s.opponent || 'UNKNOWN'}</p>
+                                                                    <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">{new Date(s.date).toLocaleDateString()}</p>
                                                                 </div>
                                                             </div>
-                                                        );
-                                                    })}
+                                                            <div className="text-right">
+                                                                <p className="text-[10px] font-black text-amber-500 italic">{s.score || '0-0'}</p>
+                                                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">{s.map || 'UNKNOWN'}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

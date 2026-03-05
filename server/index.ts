@@ -1027,7 +1027,7 @@ app.get('/api/teams/:id/stats', async (req, res) => {
         let scrimDraws = 0;
         const scrimRecentForm: string[] = [];
         const scrimMapStats: Record<string, { played: number, wins: number, losses: number, draws: number }> = {};
-        const scrimAgentStats: Record<string, { wins: number, draws: number, total: number }> = {};
+        const scrimAgentStats: Record<string, { wins: number, draws: number, total: number, maps: Record<string, number>, history: any[] }> = {};
         const scrimPlayerAgentAgg: Record<string, Record<number, any>> = {};
         let scrimTopPlayers: any[] = [];
 
@@ -1093,6 +1093,18 @@ app.get('/api/teams/:id/stats', async (req, res) => {
                     const sAg = scrimAgentStats[stat.agent] as any;
                     sAg.maps[mapName] = (sAg.maps[mapName] || 0) + 1;
 
+                    // Track history for this agent
+                    const associatedScrim = completedScrims.find(sc => sc.id === stat.scrimId);
+                    if (associatedScrim) {
+                        sAg.history.push({
+                            date: associatedScrim.date,
+                            opponent: associatedScrim.opponent,
+                            score: stat.isWin === 1 ? 'WIN' : stat.isWin === 2 ? 'DRAW' : 'LOSS', // We'll keep it simple for history
+                            map: stat.map,
+                            isWin: stat.isWin === 1
+                        });
+                    }
+
                     // Per-player per-agent aggregation
                     if (!scrimPlayerAgentAgg[stat.agent]) scrimPlayerAgentAgg[stat.agent] = {};
                     if (!scrimPlayerAgentAgg[stat.agent][stat.playerId!]) {
@@ -1137,7 +1149,7 @@ app.get('/api/teams/:id/stats', async (req, res) => {
         let tourneyLosses = 0;
         let tourneyDraws = 0;
         const tourneyRecentForm: string[] = [];
-        const tourneyAgentStats: Record<string, { wins: number, draws: number, total: number }> = {};
+        const tourneyAgentStats: Record<string, { wins: number, draws: number, total: number, maps: Record<string, number>, history: any[] }> = {};
         const tourneyPlayerAgentAgg: Record<string, Record<number, any>> = {};
         let tourneyTopPlayers: any[] = [];
 
@@ -1191,6 +1203,18 @@ app.get('/api/teams/:id/stats', async (req, res) => {
                     const mapName = stat.map || 'Unknown';
                     const tAg = tourneyAgentStats[stat.agent] as any;
                     tAg.maps[mapName] = (tAg.maps[mapName] || 0) + 1;
+
+                    // Track history for this agent
+                    const associatedTourney = completedTourneys.find(tr => tr.id === stat.tournamentId);
+                    if (associatedTourney) {
+                        tAg.history.push({
+                            date: associatedTourney.date,
+                            opponent: associatedTourney.opponent,
+                            score: stat.isWin === 1 ? 'WIN' : stat.isWin === 2 ? 'DRAW' : 'LOSS',
+                            map: stat.map,
+                            isWin: stat.isWin === 1
+                        });
+                    }
 
                     // Per-player per-agent aggregation
                     if (!tourneyPlayerAgentAgg[stat.agent]) tourneyPlayerAgentAgg[stat.agent] = {};

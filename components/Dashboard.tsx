@@ -382,7 +382,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-4 md:gap-6">
               {activeStats.map((stat, idx) => (
                 <div key={idx} className="glass rounded-[24px] md:rounded-3xl p-5 md:p-6 min-w-0 md:min-w-[180px] hover:border-amber-500/40 transition-all group cursor-default stat-card" style={{ opacity: 0 }}>
-                  <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-4 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{stat.label}</p>
+                  <p className="text-[8px] md:text-[9px] text-slate-400/70 dark:text-slate-500 font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-4 group-hover:text-amber-500 transition-colors">{stat.label}</p>
                   <div className="flex items-end justify-between">
                     <span className={`text-2xl md:text-3xl font-black text-[var(--text-color)] dark:text-white tracking-tighter ${isLoading ? 'animate-pulse opacity-50' : ''}`}>{stat.value}</span>
                     <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${stat.color} shadow-[0_0_15px_rgba(251,191,36,0.4)] group-hover:scale-125 transition-transform`} />
@@ -398,7 +398,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
                 <span className="text-3xl md:text-5xl font-black text-[var(--text-color)] dark:text-white group-hover:text-amber-500 transition-colors tracking-tighter">{Number(activeStats[1]?.value) || '—'}</span>
                 <span className="text-emerald-500 text-[8px] md:text-[10px] font-black group-hover:translate-y-[-2px] transition-transform">▲</span>
               </div>
-              <p className="text-[8px] md:text-[9px] text-slate-600 dark:text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">
+              <p className="text-[8px] md:text-[9px] text-slate-400/60 dark:text-slate-500 font-black uppercase tracking-widest mt-1 md:mt-2 whitespace-nowrap">
                 {activeTab === 'command' ? 'Deployments' : 'Tournaments'}
               </p>
             </div>

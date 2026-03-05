@@ -6,20 +6,18 @@
 }
 
 :root {
-    --bg-color: #94a3b8;
-    /* Darkened to Slate 400 for better base contrast */
-    --bg-image: radial-gradient(circle at 50% 0%, rgba(126, 34, 206, 0.15) 0%, transparent 60%), radial-gradient(circle at 90% 10%, rgba(251, 191, 36, 0.1) 0%, transparent 50%);
-    --text-color: #0f172a;
-    --royalty-gold: #b45309;
-    /* Slightly deeper for visibility */
-    --royalty-purple: #7e22ce;
-    --glass-bg: rgba(255, 255, 255, 0.45);
-    /* Reduced opacity to prevent "whiteout" */
-    --glass-border: rgba(15, 23, 42, 0.25);
-    /* Stronger border */
-    --scrollbar-track: #94a3b8;
-    --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.2);
-    /* Stronger shadow for depth */
+    --bg-color: #1e293b;
+    /* Dark Slate 800 - much more comfortable than 400 */
+    --bg-image: radial-gradient(circle at 50% 0%, rgba(126, 34, 206, 0.1) 0%, transparent 70%), radial-gradient(circle at 90% 10%, rgba(251, 191, 36, 0.05) 0%, transparent 60%);
+    --text-color: #f1f5f9;
+    /* Adjust text to light for the dark background */
+    --royalty-gold: #fbbf24;
+    --royalty-purple: #a855f7;
+    --glass-bg: rgba(15, 23, 42, 0.4);
+    /* Darker glass tint */
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --scrollbar-track: #1e293b;
+    --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.5);
 }
 
 .dark {
