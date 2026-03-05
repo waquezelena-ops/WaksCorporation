@@ -179,6 +179,17 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
             .map((a: any) => a.name);
     };
 
+    const getPerformanceLabel = (avgPlusMinus: number) => {
+        if (avgPlusMinus < -10) return { label: 'Very Poor Avg', color: 'text-red-600' };
+        if (avgPlusMinus < -5) return { label: 'Poor Avg', color: 'text-red-500' };
+        if (avgPlusMinus < -1) return { label: 'Slightly Poor Avg', color: 'text-amber-500' };
+        if (avgPlusMinus === 0) return { label: 'Avg', color: 'text-slate-400' };
+        if (avgPlusMinus <= 5) return { label: 'Slightly Above Avg', color: 'text-emerald-400' };
+        if (avgPlusMinus <= 10) return { label: 'Above Avg', color: 'text-emerald-500' };
+        if (avgPlusMinus <= 20) return { label: 'Elite', color: 'text-purple-400' };
+        return { label: 'Pro', color: 'text-amber-500' };
+    };
+
     return (
         <>
             <Modal isOpen={isOpen} onClose={onClose} zIndex={3000} backdropClassName="bg-black/98 backdrop-blur-3xl animate-in fade-in duration-700" className="w-full max-w-5xl max-h-[92vh] p-4">
@@ -243,7 +254,7 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                 (!!player.teamId || !!player.team) ? (
                                     <>
                                         {/* Stats Grid */}
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6">
                                             <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 hover:bg-white/[0.05] transition-all">
                                                 <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2">Hostile Neutralizations</p>
                                                 <p className="text-3xl font-black text-white italic">{breakdown?.overall?.avgKills?.toFixed(1) || '0.0'}</p>
@@ -266,7 +277,62 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                             </div>
                                         </div>
 
+                                        {/* Additional Performance Stats */}
+                                        {(() => {
+                                            const history = breakdown?.history || [];
+                                            const totalMatches = history.length;
+                                            const wins = history.filter((m: any) => m.isWin).length;
+                                            const losses = totalMatches - wins;
+
+                                            let totalPlusMinus = 0;
+                                            history.forEach((m: any) => {
+                                                totalPlusMinus += (m.kills - m.deaths);
+                                            });
+                                            const avgPlusMinus = totalMatches > 0 ? totalPlusMinus / totalMatches : 0;
+                                            const performance = getPerformanceLabel(avgPlusMinus);
+
+                                            return (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+                                                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+                                                        <div className={`absolute top-0 right-0 w-32 h-32 ${performance.color.replace('text-', 'bg-')}/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110`} />
+                                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2 relative z-10">Historical Performance Rating</p>
+                                                        <div className="flex items-end gap-3 relative z-10">
+                                                            <p className={`text-3xl font-black italic ${totalPlusMinus >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                                {totalPlusMinus > 0 ? '+' : ''}{totalPlusMinus}
+                                                            </p>
+                                                            <div className="mb-1">
+                                                                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-white/5 border border-white/10 ${performance.color}`}>
+                                                                    {performance.label}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest mt-2 relative z-10">
+                                                            Avg +/– : <span className="text-slate-400">{avgPlusMinus.toFixed(1)}</span> per map
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
+                                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.3em] mb-2 relative z-10">Total Mission Record</p>
+                                                        <div className="flex items-end gap-4 relative z-10">
+                                                            <div className="flex items-baseline gap-1">
+                                                                <p className="text-3xl font-black text-emerald-500 italic">{wins}</p>
+                                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">W</span>
+                                                            </div>
+                                                            <span className="text-xl font-black text-slate-700 italic mb-1">-</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <p className="text-3xl font-black text-red-500 italic">{losses}</p>
+                                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">L</span>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest mt-2 relative z-10">Across Scrims & Tournaments</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {/* Charts Section */}
+
                                         <div className="space-y-16">
                                             {/* Operator Affinity */}
                                             <div className="space-y-8">
