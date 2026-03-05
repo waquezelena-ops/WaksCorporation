@@ -1,11 +1,13 @@
 
-import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, AttachmentBuilder } from 'discord.js';
 import fs from 'fs';
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
+// Initialize REST client
+const rest = new REST({ version: '10' });
 
 client.on('ready', () => {
     console.log(`[DISCORD] Logged in as ${client.user?.tag}`);
@@ -15,87 +17,44 @@ client.on('error', (err) => {
     console.error('[DISCORD CLIENT ERROR]', err);
 });
 
-// Helper to wait for bot to be ready
-const ensureDiscordReady = async (timeoutMs = 12000): Promise<boolean> => {
-    if (client.isReady()) return true;
-
-    const token = process.env.DISCORD_BOT_TOKEN;
-    if (!token) {
-        console.error('[DISCORD] BOT_TOKEN missing in environment.');
-        return false;
-    }
-
-    // Trigger login if not already connected
-    try {
-        if (!client.isReady()) {
-            console.log('[DISCORD] Bot not ready, attempting on-demand login...');
-            initDiscord();
-        }
-    } catch (e) {
-        console.error('[DISCORD] Error during on-demand init:', e);
-    }
-
-    const start = Date.now();
-    while (!client.isReady() && Date.now() - start < timeoutMs) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log(`[DISCORD] Waiting for readiness... (${Math.round((Date.now() - start) / 1000)}s)`);
-    }
-
-    if (!client.isReady()) {
-        console.error('[DISCORD] Timeout waiting for bot to be ready after', timeoutMs, 'ms');
-    } else {
-        console.log('[DISCORD] Bot is now ready for operations.');
-    }
-    return client.isReady();
-};
-
-// Initialize the bot
+// Initialize the bot (optional for REST, but good for role fetching)
 export const initDiscord = () => {
     const token = process.env.DISCORD_BOT_TOKEN;
     if (!token) {
-        console.warn('[DISCORD] No bot token found (DISCORD_BOT_TOKEN). Notifications will be skipped.');
+        console.warn('[DISCORD] No bot token found (DISCORD_BOT_TOKEN).');
         return;
     }
 
-    // Check if login is already in progress to avoid multiple parallel attempts
-    if (client.ws.status === 0) return; // Already ready
-    if (client.ws.status === 1 || client.ws.status === 2) {
-        console.log('[DISCORD] Login already in progress, skipping redundant attempt.');
-        return;
-    }
+    rest.setToken(token);
 
-    console.log('[DISCORD] Initiating login sequence...');
+    if (client.ws.status === 0) return;
+    if (client.ws.status === 1 || client.ws.status === 2) return;
+
     client.login(token).catch(err => {
-        console.error('[DISCORD] Failed to login:', err);
+        console.error('[DISCORD] Client login failed:', err);
     });
 };
 
-// Send message to configured channel
+// Send message to configured channel using REST (stateless)
 export const sendToDiscord = async (message: string, imagePath?: string | null, targetChannelId?: string) => {
-    console.log(`[DISCORD] Preparing notification for channel: ${targetChannelId || 'DEFAULT'}`);
-
-    const ready = await ensureDiscordReady();
-    if (!ready) {
-        console.warn('[DISCORD] Aborting: Bot never reached ready state.');
-        return;
-    }
-
+    const token = process.env.DISCORD_BOT_TOKEN;
     const channelId = targetChannelId || process.env.DISCORD_SCRIM_CHANNEL_ID;
-    if (!channelId) {
-        console.warn('[DISCORD] No channel ID found in environment or parameters.');
+
+    if (!token || !channelId) {
+        console.warn('[DISCORD] Missing token or channel ID. Deployment notice skipped.');
         return;
     }
+
+    rest.setToken(token);
+    console.log(`[DISCORD REST] Sending notification to channel: ${channelId}`);
 
     try {
-        // Use force: true to bypass cache in serverless cold starts
-        const channel = await client.channels.fetch(channelId, { force: true });
-        if (channel && channel.isTextBased()) {
-            // Role mention resolution
-            let finalMessage = message;
-            const guild = (channel as any).guild;
-
+        // Resolve role mentions if client is ready (best effort)
+        let finalMessage = message;
+        if (client.isReady()) {
+            const channel = client.channels.cache.get(channelId);
+            const guild = (channel as any)?.guild;
             if (guild) {
-                // Find all potential @Role mentions in the message
                 const mentionMatches = message.match(/@([a-zA-Z0-9 :_-]+)/g);
                 if (mentionMatches) {
                     const roles = await guild.roles.fetch();
@@ -108,18 +67,25 @@ export const sendToDiscord = async (message: string, imagePath?: string | null, 
                     }
                 }
             }
-
-            const payload: any = { content: finalMessage };
-            if (imagePath && fs.existsSync(imagePath)) {
-                payload.files = [imagePath];
-            }
-
-            await (channel as TextChannel).send(payload);
-            console.log(`[DISCORD] Message dispatched successfully to ${channelId}`);
-        } else {
-            console.error(`[DISCORD ERROR] Target ${channelId} is invalid or non-textual.`);
         }
+
+        const body: any = { content: finalMessage };
+        const files: { name: string, data: Buffer | string }[] = [];
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            const data = fs.readFileSync(imagePath);
+            const name = imagePath.split(/[\\/]/).pop() || 'attachment.png';
+            files.push({ name, data });
+        }
+
+        // Use standard POST request via REST - no "ready" check needed
+        await rest.post(Routes.channelMessages(channelId), {
+            body,
+            files: files.length > 0 ? files : undefined
+        });
+
+        console.log(`[DISCORD REST] Message dispatched successfully to ${channelId}`);
     } catch (error: any) {
-        console.error(`[DISCORD ERROR] Dispatch failed for ${channelId}:`, error.message);
+        console.error(`[DISCORD REST ERROR] Dispatch failed:`, error.message);
     }
 };
