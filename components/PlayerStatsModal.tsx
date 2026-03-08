@@ -654,7 +654,7 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                 className="w-full max-w-4xl p-4 md:p-6"
             >
                 {detailView && (
-                    <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/30 shadow-[0_0_150px_rgba(245,158,11,0.2)] overflow-hidden flex flex-col p-8 md:p-12 animate-in zoom-in-95 duration-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                    <div className="relative w-full bg-[#020617]/95 backdrop-blur-3xl rounded-[40px] md:rounded-[56px] border border-amber-500/40 shadow-[0_0_150px_rgba(245,158,11,0.15)] overflow-hidden flex flex-col p-8 md:p-12 animate-in zoom-in-95 duration-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
                         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/[0.05] blur-[150px] rounded-full pointer-events-none" />
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
                             <button
@@ -691,21 +691,29 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                         <div className="mb-4 text-slate-500 shrink-0">
                                             <span>$ chartli trajectory_data.txt -t svg -m lines</span>
                                         </div>
-                                        <div className="flex-grow flex items-center justify-center min-h-0">
+                                        <div className="flex-grow flex items-center justify-center min-h-0 bg-black/40 rounded-3xl p-4 md:p-6 border border-white/5">
                                             <Line 
                                                 data={{
-                                                    labels: getDetailData().map(d => new Date(d.date).toLocaleDateString()),
+                                                    labels: getDetailData().slice(-10).map(d => new Date(d.date).toLocaleDateString([], { month: 'numeric', day: 'numeric' })),
                                                     datasets: [{
                                                         label: 'KDA',
-                                                        data: getDetailData().map(d => d.kd),
-                                                        borderColor: '#fbbf24',
-                                                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                                                        borderWidth: 2,
+                                                        data: getDetailData().slice(-10).map(d => d.kd),
+                                                        borderColor: '#f59e0b',
+                                                        backgroundColor: (context) => {
+                                                            const ctx = context.chart.ctx;
+                                                            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                                            gradient.addColorStop(0, 'rgba(168, 85, 247, 0.4)');
+                                                            gradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
+                                                            return gradient;
+                                                        },
+                                                        borderWidth: 3,
                                                         tension: 0.4,
                                                         fill: true,
-                                                        pointRadius: 4,
-                                                        pointHoverRadius: 6,
-                                                        pointBackgroundColor: '#fbbf24',
+                                                        pointRadius: 6,
+                                                        pointHoverRadius: 8,
+                                                        pointBackgroundColor: '#f59e0b',
+                                                        pointBorderColor: '#020617',
+                                                        pointBorderWidth: 2,
                                                     }]
                                                 }}
                                                 options={{
@@ -714,12 +722,23 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                                     plugins: {
                                                         legend: { display: false },
                                                         tooltip: {
-                                                            backgroundColor: 'rgba(2, 6, 23, 0.9)',
-                                                            callbacks: { label: (c) => `${c.parsed.y.toFixed(2)} KDA` }
+                                                            backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                                            titleFont: { size: 10, weight: 'bold' },
+                                                            bodyFont: { size: 12, weight: 'bold' },
+                                                            padding: 12,
+                                                            cornerRadius: 12,
+                                                            borderColor: 'rgba(245, 158, 11, 0.3)',
+                                                            borderWidth: 1,
+                                                            displayColors: false,
+                                                            callbacks: { label: (c) => `${c.parsed.y.toFixed(2)} KDA · ${c.label}` }
                                                         }
                                                     },
                                                     scales: {
-                                                        x: { display: false },
+                                                        x: { 
+                                                            display: true,
+                                                            grid: { display: false },
+                                                            ticks: { color: 'rgba(245, 158, 11, 0.5)', font: { size: 9, weight: 'bold' } }
+                                                        },
                                                         y: {
                                                             grid: { color: 'rgba(255,255,255,0.05)' },
                                                             ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9 } }
@@ -727,16 +746,6 @@ const PlayerStatsModal: React.FC<PlayerStatsModalProps> = ({
                                                     }
                                                 }}
                                             />
-                                        </div>
-                                        <div className="mt-4 flex flex-wrap gap-4 shrink-0 overflow-x-auto no-scrollbar">
-                                            {getDetailData().slice(-8).map((d, i) => (
-                                                <div key={i} className="flex flex-col gap-0.5">
-                                                    <span className="text-[7px] text-slate-600 font-black uppercase">
-                                                        {new Date(d.date).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}
-                                                    </span>
-                                                    <span className="text-amber-500 font-bold">{d.kd.toFixed(2)}</span>
-                                                </div>
-                                            ))}
                                         </div>
                                     </div>
                                 </div>

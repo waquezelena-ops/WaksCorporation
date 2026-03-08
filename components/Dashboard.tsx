@@ -479,22 +479,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
                       datasets: [{
                         label: 'Win Rate',
                         data: computedChartData.map(d => d.winRate),
-                        borderColor: '#fbbf24',
+                        borderColor: '#f59e0b',
                         backgroundColor: (context) => {
                           const ctx = context.chart.ctx;
-                          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                          gradient.addColorStop(0, 'rgba(251, 191, 36, 0.3)');
-                          gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
+                          const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                          gradient.addColorStop(0, 'rgba(168, 85, 247, 0.4)');
+                          gradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
                           return gradient;
                         },
                         borderWidth: 4,
                         fill: true,
                         tension: 0.4,
-                        pointBackgroundColor: '#fbbf24',
+                        pointBackgroundColor: '#f59e0b',
                         pointBorderColor: '#020617',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
+                        pointBorderWidth: 3,
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        pointHoverBackgroundColor: '#fbbf24',
                       }]
                     }}
                     options={{
@@ -503,13 +504,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onProfileClick, userId, userRole 
                       plugins: {
                         legend: { display: false },
                         tooltip: {
-                          backgroundColor: 'rgba(2, 6, 23, 0.9)',
+                          backgroundColor: 'rgba(2, 6, 23, 0.95)',
                           titleFont: { size: 10, weight: 'bold' },
                           bodyFont: { size: 12, weight: 'bold' },
-                          padding: 12,
-                          cornerRadius: 12,
-                          borderColor: 'rgba(251, 191, 36, 0.2)',
-                          borderWidth: 1,
+                          padding: 14,
+                          cornerRadius: 16,
+                          borderColor: 'rgba(245, 158, 11, 0.4)',
+                          borderWidth: 1.5,
                           displayColors: false,
                           callbacks: {
                             label: (context) => `${context.parsed.y}% WIN RATE`

@@ -126,8 +126,8 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                                             <svg width="0" height="0">
                                                 <defs>
                                                     <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                        <stop offset="0%" stopColor="#fbbf24" />
-                                                        <stop offset="100%" stopColor="#d97706" />
+                                                        <stop offset="0%" stopColor="#f59e0b" />
+                                                        <stop offset="100%" stopColor="#a855f7" />
                                                     </linearGradient>
                                                 </defs>
                                             </svg>
@@ -153,7 +153,13 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                                         datasets: [{
                                             label: 'Average KDA',
                                             data: data.players.map(p => Number(p.kda)),
-                                            backgroundColor: '#8b5cf6',
+                                            backgroundColor: (context) => {
+                                                const ctx = context.chart.ctx;
+                                                const gradient = ctx.createLinearGradient(0, 0, 400, 0);
+                                                gradient.addColorStop(0, '#a855f7');
+                                                gradient.addColorStop(1, '#f59e0b');
+                                                return gradient;
+                                            },
                                             borderRadius: 8,
                                         }]
                                     }}
@@ -164,9 +170,11 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                                         plugins: {
                                             legend: { display: false },
                                             tooltip: {
-                                                backgroundColor: 'rgba(2, 6, 23, 0.9)',
-                                                cornerRadius: 8,
-                                                padding: 10,
+                                                backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                                cornerRadius: 12,
+                                                padding: 12,
+                                                borderColor: 'rgba(168, 85, 247, 0.3)',
+                                                borderWidth: 1.5,
                                                 titleFont: { weight: 'bold' }
                                             }
                                         },
@@ -198,7 +206,13 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                                         datasets: [{
                                             label: 'Average ACS',
                                             data: data.players.map(p => Number(p.acs)),
-                                            backgroundColor: '#fbbf24',
+                                            backgroundColor: (context) => {
+                                                const ctx = context.chart.ctx;
+                                                const gradient = ctx.createLinearGradient(0, 400, 0, 0);
+                                                gradient.addColorStop(0, '#f59e0b');
+                                                gradient.addColorStop(1, '#a855f7');
+                                                return gradient;
+                                            },
                                             borderRadius: 8,
                                         }]
                                     }}
@@ -208,9 +222,11 @@ const PerformanceGraphs: React.FC<PerformanceGraphsProps> = ({ teamId: initialTe
                                         plugins: {
                                             legend: { display: false },
                                             tooltip: {
-                                                backgroundColor: 'rgba(2, 6, 23, 0.9)',
-                                                cornerRadius: 8,
-                                                padding: 10,
+                                                backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                                cornerRadius: 12,
+                                                padding: 12,
+                                                borderColor: 'rgba(245, 158, 11, 0.3)',
+                                                borderWidth: 1.5,
                                                 titleFont: { weight: 'bold' }
                                             }
                                         },

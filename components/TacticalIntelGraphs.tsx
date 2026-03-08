@@ -350,7 +350,13 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
                                 datasets: [{
                                     label: 'Win Rate',
                                     data: mapData.map(m => m.winRate),
-                                    backgroundColor: '#fbbf24',
+                                    backgroundColor: (context) => {
+                                        const ctx = context.chart.ctx;
+                                        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                                        gradient.addColorStop(0, '#f59e0b');
+                                        gradient.addColorStop(1, '#a855f7');
+                                        return gradient;
+                                    },
                                     borderRadius: 4,
                                 }]
                             }}
@@ -360,12 +366,16 @@ const ScrimIntel: React.FC<{ scrims: any[], playerStats: PlayerStat[], onPlayerC
                                 plugins: {
                                     legend: { display: false },
                                     tooltip: {
-                                        backgroundColor: 'rgba(2, 6, 23, 0.9)',
+                                        backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                        borderColor: 'rgba(245, 158, 11, 0.3)',
+                                        borderWidth: 1.5,
+                                        cornerRadius: 12,
+                                        padding: 12,
                                         callbacks: { label: (c) => `${c.parsed.y}% WIN RATE` }
                                     }
                                 },
                                 scales: {
-                                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } } },
+                                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9, weight: 'bold' } } },
                                     y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9 } } }
                                 }
                             }}
@@ -455,7 +465,13 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
                                     labels: formatData.map(f => f.name),
                                     datasets: [{
                                         data: formatData.map(f => f.value),
-                                        backgroundColor: '#10b981',
+                                        backgroundColor: (context) => {
+                                            const ctx = context.chart.ctx;
+                                            const gradient = ctx.createLinearGradient(0, 0, 600, 0);
+                                            gradient.addColorStop(0, '#a855f7');
+                                            gradient.addColorStop(1, '#f59e0b');
+                                            return gradient;
+                                        },
                                         borderRadius: 4,
                                     }]
                                 }}
@@ -463,10 +479,19 @@ const TournamentIntel: React.FC<{ tournaments: any[], playerStats: PlayerStat[],
                                     responsive: true,
                                     maintainAspectRatio: false,
                                     indexAxis: 'y',
-                                    plugins: { legend: { display: false } },
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                            borderColor: 'rgba(168, 85, 247, 0.3)',
+                                            borderWidth: 1.5,
+                                            cornerRadius: 12,
+                                            padding: 12
+                                        }
+                                    },
                                     scales: {
                                         x: { grid: { display: false }, ticks: { display: false } },
-                                        y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 8 } } }
+                                        y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 8, weight: 'bold' } } }
                                     }
                                 }}
                             />
