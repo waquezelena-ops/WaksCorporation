@@ -86,6 +86,33 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// ── Serverless Body Fix ──────────────────────────────────────────────────────
+// In Netlify Functions, serverless-http may pre-set req.body to a raw JSON
+// string before express.json() can parse it. Detect and fix that here.
+app.use((req, res, next) => {
+    if (typeof req.body === 'string' && req.body.length > 0) {
+        try { req.body = JSON.parse(req.body); } catch { /* not JSON */ }
+    } else if (Buffer.isBuffer(req.body) && req.body.length > 0) {
+        try { req.body = JSON.parse(req.body.toString('utf-8')); } catch { /* not JSON */ }
+    }
+    next();
+});
+
+// ── Serverless Query Fix (Frontend "undefined" string protection) ─────────────
+// Frontend components sometimes blindly send ?param=${undefined}. This globally
+// strips literal "undefined" or "null" strings from query parameters to prevent
+// Postgres from crashing when it tries to cast them to numbers (NaN).
+app.use((req, res, next) => {
+    if (req.query) {
+        for (const key in req.query) {
+            if (req.query[key] === 'undefined' || req.query[key] === 'null') {
+                delete req.query[key];
+            }
+        }
+    }
+    next();
+});
+
 // ── Security: Rate limiters ───────────────────────────────────────────────────
 const authLimiter = rateLimit({
     windowMs: 60 * 1000,   // 1 minute
