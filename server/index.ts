@@ -83,6 +83,9 @@ app.use(cors({
     credentials: true,
 }));
 
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
 // ── Security: Rate limiters ───────────────────────────────────────────────────
 const authLimiter = rateLimit({
     windowMs: 60 * 1000,   // 1 minute
@@ -168,8 +171,6 @@ const notifyRefresh = () => {
     }
 };
 
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -451,6 +452,8 @@ app.post('/api/auth/login', async (req, res) => {
                 diag: {
                     inputLen: sUsername.length,
                     isEmail,
+                    bodyType: typeof req.body,
+                    bodyKeys: Object.keys(req.body || {}),
                     dbHost: process.env.DATABASE_URL?.split('@')[1]?.split(':')[0] || 'not-set',
                     timestamp: new Date().toISOString()
                 }
@@ -799,23 +802,6 @@ app.patch('/api/notifications/:id/read', async (req, res) => {
 
 // --- DYNAMIC CONTENT ROUTES ---
 
-// CRON Trigger for Vercel
-app.get('/api/cron/check-notifications', async (req, res) => {
-    // Basic security: check for a secret header or key if desired, 
-    // but Vercel Cron can also be restricted by IP or just rely on obscurity/low-impact.
-    console.log('[CRON] Triggered notification check via API...');
-    try {
-        if (!checkAllNotifications) {
-            const scheduler = await import('./scheduler.js');
-            checkAllNotifications = scheduler.checkAllNotifications;
-        }
-        await checkAllNotifications();
-        res.json({ success: true, message: 'Notification check completed.' });
-    } catch (error: any) {
-        console.error('[CRON ERROR] Notification check failed:', error);
-        res.status(500).json({ success: false, error: 'Cron check failed', details: error.message });
-    }
-});
 
 // achievements
 app.get('/api/achievements', async (req, res) => {
