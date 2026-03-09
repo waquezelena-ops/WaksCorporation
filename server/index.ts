@@ -310,6 +310,26 @@ app.get('/api/diag', async (req, res) => {
     }
 });
 
+// SUPER-DEBUG: List usernames to see if they exist
+app.get('/api/auth/debug-check', async (req, res) => {
+    try {
+        const allUsers = await db.select({ 
+            username: users.username, 
+            email: users.email, 
+            role: users.role 
+        }).from(users).limit(10);
+        
+        res.json({
+            count: allUsers.length,
+            users: allUsers,
+            dbHost: process.env.DATABASE_URL?.split('@')[1]?.split(':')[0] || 'not-set',
+            bodyType: typeof req.body
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/health', async (req, res) => {
     let dbStatus = 'NOT CHECKED';
     let dbError = null;
@@ -3854,9 +3874,9 @@ app.get('/api/scrims', async (req, res) => {
 
         // 1. Parallelize Auth and Authorization data
         const [requesterRow, teamData, isMemberRows] = await Promise.all([
-            requesterId ? db.select().from(users).where(eq(users.id, Number(requesterId))) : Promise.resolve([]),
-            teamId ? db.select().from(teams).where(eq(teams.id, Number(teamId))) : Promise.resolve([]),
-            (teamId && requesterId) ? db.select().from(players).where(and(eq(players.teamId, Number(teamId)), eq(players.userId, Number(requesterId)))) : Promise.resolve([])
+            (requesterId && !isNaN(Number(requesterId))) ? db.select().from(users).where(eq(users.id, Number(requesterId))) : Promise.resolve([]),
+            (teamId && !isNaN(Number(teamId))) ? db.select().from(teams).where(eq(teams.id, Number(teamId))) : Promise.resolve([]),
+            (teamId && requesterId && !isNaN(Number(teamId)) && !isNaN(Number(requesterId))) ? db.select().from(players).where(and(eq(players.teamId, Number(teamId)), eq(players.userId, Number(requesterId)))) : Promise.resolve([])
         ]);
 
         requester = requesterRow[0];
