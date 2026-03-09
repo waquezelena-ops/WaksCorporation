@@ -478,6 +478,7 @@ app.post('/api/auth/login', async (req, res) => {
                 diag: {
                     inputLen: sUsername.length,
                     isEmail,
+                    dbHost: process.env.DATABASE_URL?.split('@')[1]?.split(':')[0] || 'not-set',
                     timestamp: new Date().toISOString()
                 }
             });
