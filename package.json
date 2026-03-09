@@ -44,14 +44,14 @@
     "@vitejs/plugin-react": "^5.0.0",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  },
-  "devDependencies": {
+    "vite": "^6.2.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.1.0",
-    "@capacitor/ios": "^8.1.0",
+    "@capacitor/ios": "^8.1.0"
+  },
+  "devDependencies": {
     "@types/animejs": "^3.1.13",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.14.0",
