@@ -240,7 +240,8 @@ const App: React.FC = () => {
 
           <main className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-24">
 
-            {currentView === 'profile' ? (
+            {/* Persistent Profile View */}
+            <div className={currentView === 'profile' ? 'contents' : 'hidden'}>
               <Profile
                 onBack={() => {
                   const backTo = previousView === 'profile' ? 'home' : previousView;
@@ -250,94 +251,116 @@ const App: React.FC = () => {
                 userRole={userRole}
                 backTitle={previousView === 'admin' ? 'Return to Command' : 'Return to Citadel'}
               />
-            ) : currentView === 'settings' ? (
+            </div>
+
+            {/* Persistent Settings View */}
+            <div className={currentView === 'settings' ? 'contents' : 'hidden'}>
               <Settings onBack={() => {
                 const backTo = previousView === 'settings' ? 'home' : previousView;
                 handleNavigate(backTo);
               }} userRole={userRole} />
-            ) : (
-              <>
-                <div className={currentView === 'home' ? 'contents' : 'hidden'}>
-                  <Hero isActive={currentView === 'home'} userEmail={user?.email} />
-                </div>
+            </div>
 
-                <div className={currentView === 'home' ? 'contents' : 'hidden'}>
-                  <section id="dashboard" className="scroll-mt-32">
-                    <Dashboard onProfileClick={() => handleNavigate('profile')} userId={dbUserId} userRole={userRole} />
-                  </section>
-                </div>
+            {/* Persistent Home/Hero View */}
+            <div className={currentView === 'home' ? 'contents' : 'hidden'}>
+              <Hero isActive={currentView === 'home'} userEmail={user?.email} />
+            </div>
 
-                <div className={currentView === 'admin' ? 'contents' : 'hidden'}>
-                  {!isAuthorized('admin') ? (currentView === 'admin' ? <AccessDenied /> : null) : (
-                    <section id="admin-panel" className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <AdminPanel onViewProfile={(id) => handleNavigate('profile', id)} />
-                    </section>
-                  )}
-                </div>
+            {/* Persistent Dashboard View */}
+            <div className={currentView === 'home' ? 'contents' : 'hidden'}>
+              <section id="dashboard" className="scroll-mt-32">
+                <Dashboard onProfileClick={() => handleNavigate('profile')} userId={dbUserId} userRole={userRole} />
+              </section>
+            </div>
 
-                {currentView === 'manager' && (
-                  !isAuthorized('manager') ? <AccessDenied /> : (
-                    <section id="manager-dashboard" className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <ManagerDashboard
-                        userId={dbUserId}
-                        userRole={userRole}
-                        onNavigate={(view) => handleNavigate(view as any)}
-                      />
-                    </section>
-                  )
-                )}
+            {/* Persistent Admin Panel */}
+            <div className={currentView === 'admin' ? 'contents' : 'hidden'}>
+              {!isAuthorized('admin') ? (currentView === 'admin' ? <AccessDenied /> : null) : (
+                <section id="admin-panel" className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <AdminPanel onViewProfile={(id) => handleNavigate('profile', id)} />
+                </section>
+              )}
+            </div>
 
-                {currentView === 'roster' && (
-                  <section id="roster" className="scroll-mt-32">
-                    <Roster userRole={userRole} userId={dbUserId} />
-                  </section>
-                )}
+            {/* Persistent Manager Dashboard */}
+            <div className={currentView === 'manager' ? 'contents' : 'hidden'}>
+              {!isAuthorized('manager') ? (currentView === 'manager' ? <AccessDenied /> : null) : (
+                <section id="manager-dashboard" className="scroll-mt-32 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <ManagerDashboard
+                    userId={dbUserId}
+                    userRole={userRole}
+                    onNavigate={(view) => handleNavigate(view as any)}
+                  />
+                </section>
+              )}
+            </div>
 
-                {currentView === 'playbook' && (
-                  !isAuthorized('manager') ? <AccessDenied /> : (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <Playbook userRole={userRole} userId={dbUserId} onBack={() => handleNavigate('manager')} />
-                    </section>
-                  )
-                )}
+            {/* Persistent Roster View */}
+            <div className={currentView === 'roster' ? 'contents' : 'hidden'}>
+              <section id="roster" className="scroll-mt-32">
+                <Roster userRole={userRole} userId={dbUserId} />
+              </section>
+            </div>
 
-                {currentView === 'achievements' && <Achievements />}
-                {currentView === 'events' && <Events />}
-                {currentView === 'sponsors' && <Sponsors />}
+            {/* Persistent Playbook View */}
+            <div className={currentView === 'playbook' ? 'contents' : 'hidden'}>
+              {!isAuthorized('manager') ? (currentView === 'playbook' ? <AccessDenied /> : null) : (
+                <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <Playbook userRole={userRole} userId={dbUserId} onBack={() => handleNavigate('manager')} />
+                </section>
+              )}
+            </div>
 
-                <div className={currentView === 'team-management' ? 'contents' : 'hidden'}>
-                  {!isAuthorized('team-management') ? (currentView === 'team-management' ? <AccessDenied /> : null) : (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <TeamManagement userId={dbUserId} userRole={userRole} mode="scrim" onBack={() => handleNavigate('manager')} />
-                    </section>
-                  )}
-                </div>
+            {/* Persistent Achievements View */}
+            <div className={currentView === 'achievements' ? 'contents' : 'hidden'}>
+              <Achievements />
+            </div>
 
-                <div className={currentView === 'tournament-management' ? 'contents' : 'hidden'}>
-                  {!isAuthorized('tournament-management') ? (currentView === 'tournament-management' ? <AccessDenied /> : null) : (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <TeamManagement userId={dbUserId} userRole={userRole} mode="tournament" onBack={() => handleNavigate('manager')} />
-                    </section>
-                  )}
-                </div>
+            {/* Persistent Events View */}
+            <div className={currentView === 'events' ? 'contents' : 'hidden'}>
+              <Events />
+            </div>
 
-                {currentView === 'operations' && (
-                  !isAuthorized('operations') ? <AccessDenied /> : (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <PlayerConsole userId={dbUserId} userRole={userRole} onBack={() => handleNavigate('home')} />
-                    </section>
-                  )
-                )}
+            {/* Persistent Sponsors View */}
+            <div className={currentView === 'sponsors' ? 'contents' : 'hidden'}>
+              <Sponsors />
+            </div>
 
-                {currentView === 'sponsor-zone' && (
-                  !isAuthorized('sponsor-zone') ? <AccessDenied /> : (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                      <SponsorZone />
-                    </section>
-                  )
-                )}
-              </>
-            )}
+            {/* Persistent Team Management (Scrim Mode) */}
+            <div className={currentView === 'team-management' ? 'contents' : 'hidden'}>
+              {!isAuthorized('team-management') ? (currentView === 'team-management' ? <AccessDenied /> : null) : (
+                <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <TeamManagement userId={dbUserId} userRole={userRole} mode="scrim" onBack={() => handleNavigate('manager')} />
+                </section>
+              )}
+            </div>
+
+            {/* Persistent Tournament Management */}
+            <div className={currentView === 'tournament-management' ? 'contents' : 'hidden'}>
+              {!isAuthorized('tournament-management') ? (currentView === 'tournament-management' ? <AccessDenied /> : null) : (
+                <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <TeamManagement userId={dbUserId} userRole={userRole} mode="tournament" onBack={() => handleNavigate('manager')} />
+                </section>
+              )}
+            </div>
+
+            {/* Persistent Operations View */}
+            <div className={currentView === 'operations' ? 'contents' : 'hidden'}>
+              {!isAuthorized('operations') ? (currentView === 'operations' ? <AccessDenied /> : null) : (
+                <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <PlayerConsole userId={dbUserId} userRole={userRole} onBack={() => handleNavigate('home')} />
+                </section>
+              )}
+            </div>
+
+            {/* Persistent Sponsor Zone */}
+            <div className={currentView === 'sponsor-zone' ? 'contents' : 'hidden'}>
+              {!isAuthorized('sponsor-zone') ? (currentView === 'sponsor-zone' ? <AccessDenied /> : null) : (
+                <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <SponsorZone />
+                </section>
+              )}
+            </div>
 
             <footer className="pt-20 border-t border-white/5 text-center text-slate-500 text-sm">
               <div className="flex justify-center space-x-6 mb-8">
