@@ -305,21 +305,21 @@ const App: React.FC = () => {
                 {currentView === 'events' && <Events />}
                 {currentView === 'sponsors' && <Sponsors />}
 
-                {currentView === 'team-management' && (
-                  !isAuthorized('team-management') ? <AccessDenied /> : (
+                <div className={currentView === 'team-management' ? 'contents' : 'hidden'}>
+                  {!isAuthorized('team-management') ? (currentView === 'team-management' ? <AccessDenied /> : null) : (
                     <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                       <TeamManagement userId={dbUserId} userRole={userRole} mode="scrim" onBack={() => handleNavigate('manager')} />
                     </section>
-                  )
-                )}
+                  )}
+                </div>
 
-                {currentView === 'tournament-management' && (
-                  !isAuthorized('tournament-management') ? <AccessDenied /> : (
+                <div className={currentView === 'tournament-management' ? 'contents' : 'hidden'}>
+                  {!isAuthorized('tournament-management') ? (currentView === 'tournament-management' ? <AccessDenied /> : null) : (
                     <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                       <TeamManagement userId={dbUserId} userRole={userRole} mode="tournament" onBack={() => handleNavigate('manager')} />
                     </section>
-                  )
-                )}
+                  )}
+                </div>
 
                 {currentView === 'operations' && (
                   !isAuthorized('operations') ? <AccessDenied /> : (
