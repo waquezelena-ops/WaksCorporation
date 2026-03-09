@@ -431,6 +431,9 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     console.log('[AUTH TRACE] 1. Request received for /api/auth/login');
     const { username, password } = req.body;
+    console.log('[AUTH TRACE] Body type:', typeof req.body);
+    console.log('[AUTH TRACE] Has username:', !!username);
+    console.log('[AUTH TRACE] Has password:', !!password);
     const sUsername = sanitize(username);
     // Support login by email OR username
     const isEmail = sUsername.includes('@');
@@ -466,7 +469,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         if (!userRow) {
             console.log(`[AUTH TRACE] 4a. User not found: ${sUsername}`);
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Authentication failure: User signature not matched in archives.' });
         }
 
         console.log('[AUTH TRACE] 4b. Verifying password...');
@@ -474,7 +477,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`[AUTH TRACE] 5. Password check result: ${isPasswordValid}`);
 
         if (!isPasswordValid) {
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Authentication failure: Access code rejected.' });
         }
 
         // Strip password before sending; compute role-based level
