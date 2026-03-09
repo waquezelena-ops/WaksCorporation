@@ -440,7 +440,7 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         console.log(`[AUTH TRACE] 2. Login attempt for: ${sUsername} (by ${isEmail ? 'email' : 'username'})`);
 
-        // Single query: fetch user + player data together (avoids a 2nd DB round-trip after password check)
+        // Search by both username and email to be extra robust
         const userRows = await db.select({
             id: users.id,
             username: users.username,
@@ -455,16 +455,16 @@ app.post('/api/auth/login', async (req, res) => {
             birthday: users.birthday,
             createdAt: users.createdAt,
             ign: users.ign,
-            password: users.password, // needed for verification; stripped before response
+            password: users.password,
             xp: players.xp,
             playerImage: players.image
         })
             .from(users)
             .leftJoin(players, eq(users.id, players.userId))
-            .where(isEmail 
-                ? eq(sql`lower(${users.email})`, sUsername.toLowerCase()) 
-                : eq(sql`lower(${users.username})`, sUsername.toLowerCase())
-            )
+            .where(or(
+                sql`lower(${users.username}) = ${sUsername.toLowerCase()}`,
+                sql`lower(${users.email}) = ${sUsername.toLowerCase()}`
+            ))
             .limit(1);
 
         console.log(`[AUTH TRACE] 3. DB Lookup finished. Rows: ${userRows.length}`);
