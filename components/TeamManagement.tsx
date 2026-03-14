@@ -267,6 +267,12 @@ const TeamManagement: React.FC<{
         return () => window.removeEventListener('nxc-db-refresh', handleRefresh);
     }, [selectedTeamId, mode]); // Depend on selectedTeamId to ensure closure has current ID
 
+    useEffect(() => {
+        if (onViewChange) {
+            onViewChange(view);
+        }
+    }, [view, onViewChange]);
+
     const handleCreateScrim = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTeamId) return;
