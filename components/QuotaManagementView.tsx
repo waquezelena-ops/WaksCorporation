@@ -32,8 +32,6 @@ interface RosterQuota {
     teamId: number;
     baseAimKills: number;
     baseGrindRG: number;
-    reducedAimKills?: number;
-    reducedGrindRG?: number;
 }
 
 const ProofModal: React.FC<{
@@ -172,11 +170,7 @@ const QuotaManagementView: React.FC<{
     // Form states for base targets
     const [editBaseAim, setEditBaseAim] = useState(0);
     const [editBaseGrind, setEditBaseGrind] = useState(0);
-    const [editReducedAim, setEditReducedAim] = useState(0);
-    const [editReducedGrind, setEditReducedGrind] = useState(0);
-
     const [isEditingStandard, setIsEditingStandard] = useState(false);
-    const [isEditingReduced, setIsEditingReduced] = useState(false);
     const [isSavingBase, setIsSavingBase] = useState(false);
     const isShootingGame = GAME_CATEGORY[game] === 'FPS' || GAME_CATEGORY[game] === 'BR' || GAME_CATEGORY[game] === 'VALORANT';
 
@@ -195,8 +189,6 @@ const QuotaManagementView: React.FC<{
                 setPlayers(result.data.players);
                 setEditBaseAim(result.data.baseQuota?.baseAimKills || 0);
                 setEditBaseGrind(result.data.baseQuota?.baseGrindRG || 0);
-                setEditReducedAim(result.data.baseQuota?.reducedAimKills || 0);
-                setEditReducedGrind(result.data.baseQuota?.reducedGrindRG || 0);
             } else {
                 console.error("Quota fetch error:", result.error);
                 showNotification({ message: result.error || 'Failed to load quota data.', type: 'error' });
@@ -251,8 +243,6 @@ const QuotaManagementView: React.FC<{
                 body: JSON.stringify({
                     baseAimKills: editBaseAim,
                     baseGrindRG: editBaseGrind,
-                    reducedAimKills: editReducedAim,
-                    reducedGrindRG: editReducedGrind,
                     requesterId: userId
                 })
             });
@@ -272,30 +262,6 @@ const QuotaManagementView: React.FC<{
         }
     };
 
-    const handleApplyReduced = async () => {
-        if (!window.confirm("ARE YOU SURE? This will immediately propagate reduced quota targets to ALL operatives for the current week. This action is irreversible.")) return;
-        
-        try {
-            const res = await fetch(`${GET_API_BASE_URL()}/api/teams/${teamId}/quotas/apply-reduced`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    weekStart: selectedWeek,
-                    requesterId: userId
-                })
-            });
-            const result = await res.json();
-            if (result.success) {
-                showNotification({ message: 'Reduced quota protocol active for all units.', type: 'success' });
-                fetchData();
-            } else {
-                showNotification({ message: result.error || 'Protocol failed to deploy.', type: 'error' });
-            }
-        } catch (error) {
-            console.error("Error applying reduced quota:", error);
-            showNotification({ message: 'Network error during protocol deployment.', type: 'error' });
-        }
-    };
 
     const handleSetCustomQuota = async (playerId: number, aim: number, grind: number) => {
         try {
@@ -323,6 +289,69 @@ const QuotaManagementView: React.FC<{
         } catch (error) {
             console.error("Error setting custom quota:", error);
             showNotification({ message: 'Network error during deployment.', type: 'error' });
+        }
+    };
+
+    const handleWaiveQuota = async (playerId: number, type: 'all' | 'aim' | 'grind') => {
+        if (!window.confirm(`Mark this unit's ${type === 'all' ? 'entire quota' : type + ' quota'} as complete and verified?`)) return;
+        try {
+            const res = await fetch(`${GET_API_BASE_URL()}/api/players/${playerId}/quota/waive`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weekStart: selectedWeek, type, requesterId: userId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showNotification({ message: 'Tactical quota waived successfully.', type: 'success' });
+                fetchData();
+            } else {
+                showNotification({ message: result.error || 'Failed to waive quota.', type: 'error' });
+            }
+        } catch (error) {
+            console.error("Error waiving quota:", error);
+            showNotification({ message: 'Network error during waiver.', type: 'error' });
+        }
+    };
+
+    const handleWaivePunishment = async (playerId: number) => {
+        if (!window.confirm("Waive all penalty requirements and reset targets to standard protocol levels?")) return;
+        try {
+            const res = await fetch(`${GET_API_BASE_URL()}/api/players/${playerId}/quota/waive-punishment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weekStart: selectedWeek, requesterId: userId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showNotification({ message: 'Penalties waived and targets synchronized.', type: 'success' });
+                fetchData();
+            } else {
+                showNotification({ message: result.error || 'Failed to waive penalties.', type: 'error' });
+            }
+        } catch (error) {
+            console.error("Error waiving punishment:", error);
+            showNotification({ message: 'Network error during waiver.', type: 'error' });
+        }
+    };
+
+    const handleSyncBase = async () => {
+        if (!window.confirm("Synchronize current week targets for ALL players to the standard protocol levels? This will overwrite any custom tactical overrides for this cycle.")) return;
+        try {
+            const res = await fetch(`${GET_API_BASE_URL()}/api/teams/${teamId}/quotas/sync-base`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weekStart: selectedWeek, requesterId: userId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showNotification({ message: 'Standard protocol synchronized to all units.', type: 'success' });
+                fetchData();
+            } else {
+                showNotification({ message: result.error || 'Failed to synchronize base protocol.', type: 'error' });
+            }
+        } catch (error) {
+            console.error("Error synchronizing base quota:", error);
+            showNotification({ message: 'Network error during synchronization.', type: 'error' });
         }
     };
 
@@ -444,77 +473,6 @@ const QuotaManagementView: React.FC<{
                         </div>
                     </div>
 
-                    {/* Reduced Quota Section */}
-                    <div className="bg-gradient-to-br from-amber-500/10 to-transparent p-10 rounded-[35px] border border-amber-500/20 relative group overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <svg className="w-16 h-16 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        </div>
-                        <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] mb-8">Reduced Quota Protocol</h4>
-
-                        <div className="space-y-8 relative z-10">
-                            {isShootingGame && (
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">Reduced Aim Routine</label>
-                                    <input
-                                        type="number"
-                                        value={editReducedAim}
-                                        onChange={(e) => setEditReducedAim(parseInt(e.target.value) || 0)}
-                                        disabled={!isEditingReduced}
-                                        className={`w-full bg-black/40 border ${isEditingReduced ? 'border-amber-500/50' : 'border-white/10 opacity-50'} rounded-2xl px-6 py-4 text-white font-black text-xl tracking-tight focus:outline-none transition-all`}
-                                    />
-                                </div>
-                            )}
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">Reduced Grind Routine</label>
-                                <input
-                                    type="number"
-                                    value={editReducedGrind}
-                                    onChange={(e) => setEditReducedGrind(parseInt(e.target.value) || 0)}
-                                    disabled={!isEditingReduced}
-                                    className={`w-full bg-black/40 border ${isEditingReduced ? 'border-amber-500/50' : 'border-white/10 opacity-50'} rounded-2xl px-6 py-4 text-white font-black text-xl tracking-tight focus:outline-none transition-all`}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col space-y-4 mt-10">
-                            <button
-                                onClick={() => {
-                                    if (isEditingReduced) {
-                                        handleSaveBaseTargets();
-                                        setIsEditingReduced(false);
-                                    } else {
-                                        setIsEditingReduced(true);
-                                    }
-                                }}
-                                disabled={isSavingBase}
-                                className={`px-8 py-4 w-full ${isEditingReduced ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500'} disabled:bg-slate-800 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 border-t border-white/20`}
-                            >
-                                {isSavingBase ? 'Updating...' : (isEditingReduced ? 'Commit Protocol' : 'Modify Reduced Weekly')}
-                            </button>
-                            
-                            {!isEditingReduced && (
-                                <button
-                                    onClick={handleApplyReduced}
-                                    className="px-8 py-4 w-full bg-white/5 hover:bg-red-500/20 text-red-500 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl transition-all border border-red-500/20 active:scale-95"
-                                >
-                                    Apply Reduced Quota to Current Week
-                                </button>
-                            )}
-
-                            {isEditingReduced && (
-                                <button
-                                    onClick={() => {
-                                        setIsEditingReduced(false);
-                                        setEditReducedAim(baseQuota?.reducedAimKills || 0);
-                                        setEditReducedGrind(baseQuota?.reducedGrindRG || 0);
-                                    }}
-                                    className="px-8 py-4 w-full bg-white/5 hover:bg-white/10 text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl transition-all active:scale-95 border border-white/10"
-                                >
-                                    Cancel
-                                </button>
-                            )}
-                        </div>
-                    </div>
                 </div>
             )}
 
@@ -642,21 +600,26 @@ const QuotaManagementView: React.FC<{
                                         )}
                                     </td>
                                     <td className="p-8" onClick={() => setSelectedPlayerForProof(player)}>
-                                        <div className="flex flex-col items-end space-y-2">
-                                            <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${(player.progress.aimStatus === 'completed' || player.progress.aimStatus === 'approved') && (player.progress.grindStatus === 'completed' || player.progress.grindStatus === 'approved')
-                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
-                                                : (player.progress.aimStatus === 'rejected' || player.progress.grindStatus === 'rejected')
-                                                    ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                                                    : (player.progress.aimStatus === 'failed' || player.progress.grindStatus === 'failed')
+                                            <div className="flex flex-col items-end space-y-2">
+                                                <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${(player.progress.aimStatus === 'completed' || player.progress.aimStatus === 'approved') && (player.progress.grindStatus === 'completed' || player.progress.grindStatus === 'approved')
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                                                    : (player.progress.aimStatus === 'rejected' || player.progress.grindStatus === 'rejected')
                                                         ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                                                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
-                                                }`}>
-                                                {(player.progress.aimStatus === 'approved' && player.progress.grindStatus === 'approved') ? 'COMMAND VERIFIED' : (player.progress.aimStatus === 'rejected' || player.progress.grindStatus === 'rejected') ? 'TELEMETRY REJECTED' : (player.progress.aimStatus === 'completed' && player.progress.grindStatus === 'completed') ? 'IDENTIFIED CLEAR' : 'UNDER REVIEW'}
-                                            </span>
-                                            <button className="text-[8px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white transition-colors">
-                                                VIEW INTEL ACCESS
-                                            </button>
-                                        </div>
+                                                        : (player.progress.aimStatus === 'failed' || player.progress.grindStatus === 'failed')
+                                                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                            : 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
+                                                    }`}>
+                                                    {(player.progress.aimStatus === 'approved' && player.progress.grindStatus === 'approved') ? 'COMMAND VERIFIED' : (player.progress.aimStatus === 'rejected' || player.progress.grindStatus === 'rejected') ? 'TELEMETRY REJECTED' : (player.progress.aimStatus === 'completed' && player.progress.grindStatus === 'completed') ? 'IDENTIFIED CLEAR' : 'UNDER REVIEW'}
+                                                </span>
+                                                <div className="flex items-center space-x-2">
+                                                    {(player.progress.aimStatus === 'approved' && player.progress.grindStatus === 'approved') && (
+                                                        <span className="text-[7px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded font-black uppercase tracking-widest">Done</span>
+                                                    )}
+                                                    <button onClick={() => setSelectedPlayerForProof(player)} className="text-[8px] text-amber-500 font-black uppercase tracking-[0.2em] hover:text-white transition-colors">
+                                                        VIEW INTEL ACCESS
+                                                    </button>
+                                                </div>
+                                            </div>
                                     </td>
                                     <td className="p-8 text-right">
                                         {canEdit ? (
@@ -667,6 +630,20 @@ const QuotaManagementView: React.FC<{
                                                     title="Tactical Override"
                                                 >
                                                     <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleWaiveQuota(player.id, 'all'); }}
+                                                    className="p-3 bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 rounded-xl transition-all"
+                                                    title="Waive Quota (Mark as Done)"
+                                                >
+                                                    <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleWaivePunishment(player.id); }}
+                                                    className="p-3 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 rounded-xl transition-all"
+                                                    title="Waive Penalties & Reset Targets"
+                                                >
+                                                    <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
                                             </div>
                                         ) : (
@@ -744,7 +721,7 @@ const QuotaManagementView: React.FC<{
                         <div className="pt-6 border-t border-white/5 space-y-4">
                             <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 flex items-start space-x-3">
                                 <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                <p className="text-[9px] text-amber-500/80 font-bold uppercase tracking-widest leading-relaxed">Warning: Operational overrides are restricted to one deployment per weekly cycle. This action cannot be reversed.</p>
+                                <p className="text-[9px] text-amber-500/80 font-bold uppercase tracking-widest leading-relaxed">Warning: Operational overrides immediately affect the operative's tactical goals for the current weekly cycle.</p>
                             </div>
 
                             <div className="flex space-x-4">

@@ -195,8 +195,6 @@ export const rosterQuotas = pgTable('roster_quotas', {
     teamId: integer('team_id').references(() => teams.id).unique(),
     baseAimKills: integer('base_aim_kills').default(0),
     baseGrindRG: integer('base_grind_rg').default(0),
-    reducedAimKills: integer('reduced_aim_kills').default(0),
-    reducedGrindRG: integer('reduced_grind_rg').default(0),
     updatedAt: timestamp('updated_at').defaultNow(),
 });
 

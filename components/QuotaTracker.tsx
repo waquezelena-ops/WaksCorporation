@@ -131,30 +131,36 @@ const QuotaTracker: React.FC<{
     }, [playerId, teamId]);
 
     const handleUploadAimScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const newProof: AimProofItem = {
-                    url: ev.target?.result as string,
-                    kills: 0
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files).slice(0, 50); // Hard cap at 50 for safety
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setAimProofs(prev => [...prev, {
+                        url: ev.target?.result as string,
+                        kills: 0
+                    }]);
                 };
-                setAimProofs([...aimProofs, newProof]);
-            };
-            reader.readAsDataURL(e.target.files[0]);
+                reader.readAsDataURL(file as File);
+            });
         }
     };
 
     const handleUploadGrindScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const newProof: GrindProofItem = {
-                    url: ev.target?.result as string,
-                    games: 0
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files).slice(0, 50);
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setGrindProofs(prev => [...prev, {
+                        url: ev.target?.result as string,
+                        games: 0
+                    }]);
                 };
-                setGrindProofs([...grindProofs, newProof]);
-            };
-            reader.readAsDataURL(e.target.files[0]);
+                reader.readAsDataURL(file as File);
+            });
         }
     };
 
@@ -313,8 +319,8 @@ const QuotaTracker: React.FC<{
                         {/* Proof Gallery */}
                         <div className="space-y-4 flex-grow">
                             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Intelligence Proofs (Screenshots)</label>
-                            <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {aimProofs.map((proof, idx) => (
                                         <div key={idx} className="relative group/proof aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-xl">
                                             <img src={proof.url} className="w-full h-full object-cover transition-transform group-hover/proof:scale-110" />
@@ -322,10 +328,16 @@ const QuotaTracker: React.FC<{
                                                 <div className="flex items-center space-x-2 w-full pr-8">
                                                     <span className="text-[8px] font-black text-white/40 uppercase">KILLS:</span>
                                                     <input
-                                                        type="number"
-                                                        value={proof.kills}
-                                                        onChange={(e) => handleUpdateAimProofKills(idx, parseInt(e.target.value) || 0)}
-                                                        className="bg-transparent text-white font-black text-sm w-full outline-none focus:text-purple-400 transition-colors"
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                        placeholder="0"
+                                                        value={proof.kills === 0 ? '' : proof.kills}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                                            handleUpdateAimProofKills(idx, parseInt(val) || 0);
+                                                        }}
+                                                        className="bg-white/5 text-white font-black text-lg w-full outline-none focus:bg-purple-500/20 focus:text-purple-400 transition-all rounded-lg px-3 py-2 border border-white/5 focus:border-purple-500/50"
                                                     />
                                                 </div>
                                                 <button
@@ -338,7 +350,7 @@ const QuotaTracker: React.FC<{
                                         </div>
                                     ))}
                                     <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/[0.08] border-2 border-dashed border-white/10 rounded-2xl cursor-pointer transition-all group/upload relative aspect-video">
-                                        <input type="file" accept="image/*" onChange={handleUploadAimScreenshot} className="hidden" />
+                                        <input type="file" accept="image/*" multiple onChange={handleUploadAimScreenshot} className="hidden" />
                                         <svg className="w-8 h-8 text-slate-600 group-hover/upload:text-purple-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4v16m8-8H4" /></svg>
                                         <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Add Aim Intel</span>
                                     </label>
@@ -386,21 +398,27 @@ const QuotaTracker: React.FC<{
                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block ml-1">Engagement Analysis (Ranked Proofs)</label>
 
                         {/* Grind Proof Gallery */}
-                        <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                                 {grindProofs.map((proof, idx) => (
                                     <div key={idx} className="relative group/proof aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-xl">
                                         <img src={proof.url} className="w-full h-full object-cover transition-transform group-hover/proof:scale-110" />
                                         <div className="absolute inset-x-0 bottom-0 p-3 bg-black/60 backdrop-blur-md flex items-center justify-between border-t border-white/10">
-                                            <div className="flex items-center space-x-2 w-full pr-8">
-                                                <span className="text-[8px] font-black text-white/40 uppercase">GAMES:</span>
-                                                <input
-                                                    type="number"
-                                                    value={proof.games}
-                                                    onChange={(e) => handleUpdateGrindProofGames(idx, parseInt(e.target.value) || 0)}
-                                                    className="bg-transparent text-white font-black text-sm w-full outline-none focus:text-emerald-400 transition-colors"
-                                                />
-                                            </div>
+                                                <div className="flex items-center space-x-2 w-full pr-8">
+                                                    <span className="text-[8px] font-black text-white/40 uppercase">GAMES:</span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                        placeholder="0"
+                                                        value={proof.games === 0 ? '' : proof.games}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                                            handleUpdateGrindProofGames(idx, parseInt(val) || 0);
+                                                        }}
+                                                        className="bg-white/5 text-white font-black text-lg w-full outline-none focus:bg-emerald-500/20 focus:text-emerald-400 transition-all rounded-lg px-3 py-2 border border-white/5 focus:border-emerald-500/50"
+                                                    />
+                                                </div>
                                             <button
                                                 onClick={() => handleRemoveGrindProof(idx)}
                                                 className="absolute right-2 text-slate-400 hover:text-red-500 transition-colors"
@@ -411,7 +429,7 @@ const QuotaTracker: React.FC<{
                                     </div>
                                 ))}
                                 <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/[0.08] border-2 border-dashed border-white/10 rounded-2xl cursor-pointer transition-all group/upload relative aspect-video">
-                                    <input type="file" accept="image/*" onChange={handleUploadGrindScreenshot} className="hidden" />
+                                    <input type="file" accept="image/*" multiple onChange={handleUploadGrindScreenshot} className="hidden" />
                                     <svg className="w-8 h-8 text-slate-600 group-hover/upload:text-emerald-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4v16m8-8H4" /></svg>
                                     <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Add Grind Intel</span>
                                 </label>

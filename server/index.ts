@@ -83,8 +83,8 @@ app.use(cors({
     credentials: true,
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // ── Serverless Body Fix ──────────────────────────────────────────────────────
 // In Netlify Functions, serverless-http may pre-set req.body to a raw JSON
@@ -2903,7 +2903,7 @@ app.get('/api/teams/:id/quotas', async (req, res) => {
 app.post('/api/teams/:id/settings/quota', async (req, res) => {
     try {
         const teamId = Number(req.params.id);
-        const { baseAimKills, baseGrindRG, reducedAimKills, reducedGrindRG, requesterId } = req.body;
+        const { baseAimKills, baseGrindRG, requesterId } = req.body;
 
         // Authorization check
         if (!requesterId) return res.status(401).json({ success: false, error: 'Unauthorized: Requester ID required.' });
@@ -2927,10 +2927,10 @@ app.post('/api/teams/:id/settings/quota', async (req, res) => {
         const existing = existingRows[0];
         if (existing) {
             await db.update(rosterQuotas)
-                .set({ baseAimKills, baseGrindRG, reducedAimKills, reducedGrindRG, updatedAt: new Date() })
+                .set({ baseAimKills, baseGrindRG, updatedAt: new Date() })
                 .where(eq(rosterQuotas.teamId, teamId));
         } else {
-            await db.insert(rosterQuotas).values({ teamId, baseAimKills, baseGrindRG, reducedAimKills, reducedGrindRG });
+            await db.insert(rosterQuotas).values({ teamId, baseAimKills, baseGrindRG });
         }
         notifyRefresh();
         res.json({ success: true, message: 'Settings updated' });
@@ -2940,8 +2940,8 @@ app.post('/api/teams/:id/settings/quota', async (req, res) => {
     }
 });
 
-// Apply Reduced Quota to all players for current week
-app.post('/api/teams/:id/quotas/apply-reduced', async (req, res) => {
+// Sync Team Base Quota to all players for current week
+app.post('/api/teams/:id/quotas/sync-base', async (req, res) => {
     try {
         const teamId = Number(req.params.id);
         const { weekStart, requesterId } = req.body;
@@ -2962,8 +2962,8 @@ app.post('/api/teams/:id/quotas/apply-reduced', async (req, res) => {
         // Update all players for this week
         await db.update(playerQuotaProgress)
             .set({
-                assignedBaseAim: baseQuota.reducedAimKills || 0,
-                assignedBaseGrind: baseQuota.reducedGrindRG || 0,
+                assignedBaseAim: baseQuota.baseAimKills || 0,
+                assignedBaseGrind: baseQuota.baseGrindRG || 0,
                 updatedAt: new Date()
             })
             .where(and(
@@ -2974,12 +2974,13 @@ app.post('/api/teams/:id/quotas/apply-reduced', async (req, res) => {
             ));
 
         notifyRefresh();
-        res.json({ success: true, message: 'Reduced quota applied to all units for the current cycle.' });
+        res.json({ success: true, message: 'Standard protocol synchronized to all units for the current cycle.' });
     } catch (error: any) {
-        console.error("Apply Reduced Quota Error:", error);
-        res.status(500).json({ success: false, error: "Failed to apply reduced quota" });
+        console.error("Sync Base Quota Error:", error);
+        res.status(500).json({ success: false, error: "Failed to synchronize base quota" });
     }
 });
+
 
 // Update Player Progress
 app.post('/api/players/:id/quota/update', async (req, res) => {
@@ -3012,6 +3013,84 @@ app.post('/api/players/:id/quota/update', async (req, res) => {
     } catch (error: any) {
         console.error("Progress Update Error:", error);
         res.status(500).json({ success: false, error: "Failed to update progress", details: IS_PROD ? undefined : error.message });
+    }
+});
+
+// Waive Quota (Mark as Done)
+app.post('/api/players/:id/quota/waive', async (req, res) => {
+    try {
+        const playerId = Number(req.params.id);
+        const { weekStart, type, requesterId } = req.body;
+
+        if (!requesterId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+        
+        const requesterRows = await db.select().from(users).where(eq(users.id, Number(requesterId)));
+        const requester = requesterRows[0];
+        const isAdmin = requester?.role?.includes('admin') || requester?.role?.includes('ceo');
+        const isManager = requester?.role?.includes('manager') || requester?.role?.includes('coach');
+
+        if (!isAdmin && !isManager) return res.status(403).json({ success: false, error: 'Access Denied' });
+
+        const updateData: any = { updatedAt: new Date() };
+        if (type === 'all' || type === 'aim') updateData.aimStatus = 'approved';
+        if (type === 'all' || type === 'grind') updateData.grindStatus = 'approved';
+
+        await db.update(playerQuotaProgress)
+            .set(updateData)
+            .where(and(
+                eq(playerQuotaProgress.playerId, playerId),
+                eq(playerQuotaProgress.weekStart, weekStart)
+            ));
+
+        notifyRefresh();
+        res.json({ success: true, message: 'Tactical quota waived and marked as complete.' });
+    } catch (error: any) {
+        console.error("Waive Quota Error:", error);
+        res.status(500).json({ success: false, error: "Failed to waive quota" });
+    }
+});
+
+// Waive Punishment & Reset Targets
+app.post('/api/players/:id/quota/waive-punishment', async (req, res) => {
+    try {
+        const playerId = Number(req.params.id);
+        const { weekStart, requesterId } = req.body;
+
+        if (!requesterId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+        
+        const requesterRows = await db.select().from(users).where(eq(users.id, Number(requesterId)));
+        const requester = requesterRows[0];
+        const isAdmin = requester?.role?.includes('admin') || requester?.role?.includes('ceo');
+        const isManager = requester?.role?.includes('manager') || requester?.role?.includes('coach');
+
+        if (!isAdmin && !isManager) return res.status(403).json({ success: false, error: 'Access Denied' });
+
+        // Get player's team to find base quota
+        const playerRows = await db.select().from(players).where(eq(players.id, playerId));
+        if (playerRows.length === 0) return res.status(404).json({ success: false, error: "Player not found" });
+        const teamId = playerRows[0].teamId;
+
+        const baseQuotaRows = await db.select().from(rosterQuotas).where(eq(rosterQuotas.teamId, teamId));
+        const baseQuota = baseQuotaRows[0];
+
+        await db.update(playerQuotaProgress)
+            .set({
+                punishmentKills: 0,
+                punishmentRG: 0,
+                assignedBaseAim: baseQuota?.baseAimKills || 0,
+                assignedBaseGrind: baseQuota?.baseGrindRG || 0,
+                updatedAt: new Date()
+            })
+            .where(and(
+                eq(playerQuotaProgress.playerId, playerId),
+                eq(playerQuotaProgress.weekStart, weekStart)
+            ));
+
+        notifyRefresh();
+        res.json({ success: true, message: 'Punishments waived and targets synchronized to base levels.' });
+    } catch (error: any) {
+        console.error("Waive Punishment Error:", error);
+        res.status(500).json({ success: false, error: "Failed to waive punishment" });
     }
 });
 
@@ -3098,10 +3177,6 @@ app.post('/api/players/:id/quota/custom', async (req, res) => {
 
         if (!progress) return res.status(404).json({ success: false, error: "Quota record not found for this week" });
 
-        // Check if already modified this week
-        if (progress.isCustomQuotaApplied) {
-            return res.status(400).json({ success: false, error: "Access Denied: Units are only permitted one tactical quota adjustment per weekly cycle." });
-        }
 
         await db.update(playerQuotaProgress)
             .set({
