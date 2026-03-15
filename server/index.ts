@@ -2936,6 +2936,10 @@ app.get('/api/players/:id/quota/proofs', async (req, res) => {
             return res.json({ success: true, data: { aimProof: '[]', grindProof: '[]' } });
         }
 
+        // Bandwidth Optimization: Enable Edge Caching for proofs (highly static data)
+        // This reduces 'Fast Origin Transfer' by serving from Vercel's Edge network
+        res.set('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=60');
+
         res.json({
             success: true,
             data: {
