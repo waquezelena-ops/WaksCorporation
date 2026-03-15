@@ -165,6 +165,7 @@ const QuotaManagementView: React.FC<{
     const [baseQuota, setBaseQuota] = useState<RosterQuota | null>(null);
     const [players, setPlayers] = useState<TeamMember[]>([]);
     const [selectedPlayerForProof, setSelectedPlayerForProof] = useState<TeamMember | null>(null);
+    const [fetchingProofs, setFetchingProofs] = useState(false);
     const [editingPlayerQuota, setEditingPlayerQuota] = useState<{ id: number, name: string, aim: number, grind: number } | null>(null);
 
     // Form states for base targets
@@ -173,6 +174,33 @@ const QuotaManagementView: React.FC<{
     const [isEditingStandard, setIsEditingStandard] = useState(false);
     const [isSavingBase, setIsSavingBase] = useState(false);
     const isShootingGame = GAME_CATEGORY[game] === 'FPS' || GAME_CATEGORY[game] === 'BR' || GAME_CATEGORY[game] === 'VALORANT';
+
+    const handleOpenProofModal = async (player: TeamMember) => {
+        setFetchingProofs(true);
+        try {
+            const res = await fetch(`${GET_API_BASE_URL()}/api/players/${player.id}/quota/proofs?weekStart=${selectedWeek}`);
+            const result = await res.json();
+            if (result.success) {
+                // Enrich the player object with fetched proofs
+                const enrichedPlayer = {
+                    ...player,
+                    progress: {
+                        ...player.progress,
+                        aimProof: result.data.aimProof,
+                        grindProof: result.data.grindProof
+                    }
+                };
+                setSelectedPlayerForProof(enrichedPlayer);
+            } else {
+                showNotification({ message: result.error || 'Failed to fetch tactical intelligence.', type: 'error' });
+            }
+        } catch (error) {
+            console.error("Error fetching proofs:", error);
+            showNotification({ message: 'Network error while fetching proofs.', type: 'error' });
+        } finally {
+            setFetchingProofs(false);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -524,7 +552,7 @@ const QuotaManagementView: React.FC<{
                         <tbody className="divide-y divide-white/5">
                             {players.map(player => (
                                 <tr key={player.id} className="group hover:bg-white/[0.03] transition-colors">
-                                    <td className="p-8" onClick={() => setSelectedPlayerForProof(player)}>
+                                    <td className="p-8 cursor-pointer" onClick={() => handleOpenProofModal(player)}>
                                         <div className="flex items-center space-x-4">
                                             <img src={(player as any).image || `https://ui-avatars.com/api/?name=${player.name}&background=random`} className="w-12 h-12 rounded-xl object-cover border border-white/10 group-hover:border-amber-500/30 transition-colors" />
                                             <div>
@@ -742,6 +770,16 @@ const QuotaManagementView: React.FC<{
                     </div>
                 </div>
             </Modal>
+
+            {/* Loading Overlay for Proofs */}
+            {fetchingProofs && (
+                <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+                    <div className="bg-[#020617] p-8 rounded-[30px] border border-white/10 shadow-2xl flex flex-col items-center">
+                        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-4" />
+                        <p className="text-[10px] text-amber-500 font-black uppercase tracking-[0.4em]">Retrieving Tactical Intelligence...</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -2816,9 +2816,25 @@ app.get('/api/teams/:id/quotas', async (req, res) => {
 
         // 3. Aggregate Progress
         const playersWithQuotas = await Promise.all(teamPlayers.map(async (player) => {
-            const progressRows = await db.select().from(playerQuotaProgress)
+            const progressRows = await db.select({
+                id: playerQuotaProgress.id,
+                playerId: playerQuotaProgress.playerId,
+                weekStart: playerQuotaProgress.weekStart,
+                aimStatus: playerQuotaProgress.aimStatus,
+                grindStatus: playerQuotaProgress.grindStatus,
+                totalAimKills: playerQuotaProgress.totalAimKills,
+                totalGrindRG: playerQuotaProgress.totalGrindRG,
+                assignedBaseAim: playerQuotaProgress.assignedBaseAim,
+                assignedBaseGrind: playerQuotaProgress.assignedBaseGrind,
+                punishmentKills: playerQuotaProgress.punishmentKills,
+                punishmentRG: playerQuotaProgress.punishmentRG,
+                carryOverKills: playerQuotaProgress.carryOverKills,
+                carryOverRG: playerQuotaProgress.carryOverRG,
+                isCustomQuotaApplied: playerQuotaProgress.isCustomQuotaApplied,
+                updatedAt: playerQuotaProgress.updatedAt
+            }).from(playerQuotaProgress)
                 .where(and(eq(playerQuotaProgress.playerId, player.id), eq(playerQuotaProgress.weekStart, weekStart)));
-            let progress = progressRows[0];
+            let progress: any = progressRows[0];
 
             // Auto-initialize progress if missing for the requested week
             if (!progress) {
@@ -2895,7 +2911,41 @@ app.get('/api/teams/:id/quotas', async (req, res) => {
         });
     } catch (error: any) {
         console.error("Quota Fetch Error:", error);
-        res.status(500).json({ success: false, error: "Failed to fetch quotas", details: IS_PROD ? undefined : error.message });
+        res.status(500).json({ success: false, error: "Failed to fetch quotas" });
+    }
+});
+
+// Fetch Individual Player Proofs (On-demand to save payload)
+app.get('/api/players/:id/quota/proofs', async (req, res) => {
+    try {
+        const playerId = Number(req.params.id);
+        const { weekStart } = req.query;
+
+        if (!weekStart) return res.status(400).json({ success: false, error: 'Week start date required' });
+
+        const progressRows = await db.select({
+            aimProof: playerQuotaProgress.aimProof,
+            grindProof: playerQuotaProgress.grindProof
+        }).from(playerQuotaProgress)
+          .where(and(
+              eq(playerQuotaProgress.playerId, playerId),
+              eq(playerQuotaProgress.weekStart, weekStart as string)
+          ));
+
+        if (progressRows.length === 0) {
+            return res.json({ success: true, data: { aimProof: '[]', grindProof: '[]' } });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                aimProof: progressRows[0].aimProof || '[]',
+                grindProof: progressRows[0].grindProof || '[]'
+            }
+        });
+    } catch (error: any) {
+        console.error("Fetch Proofs Error:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch tactical proofs" });
     }
 });
 

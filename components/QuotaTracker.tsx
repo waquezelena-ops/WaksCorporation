@@ -93,20 +93,32 @@ const QuotaTracker: React.FC<{
                 const myData = data.players.find((p: any) => p.id === playerId);
                 if (myData) {
                     setProgress(myData.progress);
-                    // Source proofs only if pending or rejected. Clean slate for completed/approved.
-                    if (myData.progress.aimStatus === 'pending' || myData.progress.aimStatus === 'rejected') {
-                        setAimProofs(JSON.parse(myData.progress.aimProof || '[]'));
-                    } else {
-                        setAimProofs([]);
+                    
+                    // Fetch proofs separately since they are excluded from the main roster payload
+                    try {
+                        const proofsRes = await fetch(`${GET_API_BASE_URL()}/api/players/${playerId}/quota/proofs?weekStart=${currentWeek}`);
+                        const proofsResult = await proofsRes.json();
+                        if (proofsResult.success) {
+                            if (myData.progress.aimStatus === 'pending' || myData.progress.aimStatus === 'rejected') {
+                                setAimProofs(JSON.parse(proofsResult.data.aimProof || '[]'));
+                            } else {
+                                setAimProofs([]);
+                            }
+                            if (myData.progress.grindStatus === 'pending' || myData.progress.grindStatus === 'rejected') {
+                                setGrindProofs(JSON.parse(proofsResult.data.grindProof || '[]'));
+                            } else {
+                                setGrindProofs([]);
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Error fetching own proofs:", err);
                     }
 
-                    if (myData.progress.grindStatus === 'pending' || myData.progress.grindStatus === 'rejected') {
-                        setGrindProofs(JSON.parse(myData.progress.grindProof || '[]'));
-                    } else {
-                        setGrindProofs([]);
-                    }
+                    setBaseQuota({
+                        baseAimKills: data.baseQuota.baseAimKills,
+                        baseGrindRG: data.baseQuota.baseGrindRG
+                    });
                 }
-                setBaseQuota(data.baseQuota);
             } else {
                 showNotification({ message: result.error || 'Failed to load quota targets', type: 'error' });
             }
