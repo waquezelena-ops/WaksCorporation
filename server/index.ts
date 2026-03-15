@@ -5250,7 +5250,7 @@ if (process.env.NODE_ENV !== 'production' || process.env.VITE_DEV_SERVER) {
         initScheduler();
     });
 } else {
-    console.log('[DEBUG] Running in Serverless environment (Netlify).');
+    console.log('[DEBUG] Running in Serverless environment (Vercel/Netlify).');
     // In serverless, we still need to init Discord so sendToDiscord works when called via routes/cron
     // Note: initScheduler() (node-cron) is NOT called here as it is not supported in serverless.
     initDiscord();
